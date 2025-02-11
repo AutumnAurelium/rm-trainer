@@ -23,6 +23,6 @@ class ScaledSFTTrainer(SFTTrainer):
             # Ensure scores is a tensor
             if not torch.is_tensor(scores):
                 scores = torch.tensor(scores, dtype=loss.dtype, device=loss.device)
-            loss = loss * scores.mean()
+            loss = loss * torch.abs(scores.mean())
 
         return (loss, outputs) if return_outputs else loss 

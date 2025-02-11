@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, TrainingArguments
 from scaled_sft_trainer import ScaledSFTTrainer
 from slop_dataset import DatasetParser
 
-model_name = "Qwen/Qwen2.5-0.5B"
+model_name = "Qwen/Qwen2.5-7B"
 permitted_tokens = ["a", "b"]
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -18,7 +18,7 @@ model = Qwen2ForCausalLMPermittedTokens.from_pretrained(model_name, permitted_to
 model.train()
 
 # Load dataset from data/dclm_slop_results.jsonl using the provided function
-train_dataset = DatasetParser("data/dclm_slop_results.jsonl", tokenizer, 1024).get_hf_slop_dataset()
+train_dataset = DatasetParser("data/dclm_slop_results.jsonl", tokenizer, 256).get_hf_slop_dataset()
 
 print(f"Beginning training with {len(train_dataset)} examples.")
 
