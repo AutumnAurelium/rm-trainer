@@ -27,50 +27,48 @@ class LazySlopIterableDataset(IterableDataset):
         self.max_length = max_length
     
     def __iter__(self):
-        with open(self.filename, 'r') as f:
+        with open(self.filename, "r") as f:
             for line in f:
-                if not line.strip():
-                    continue
-                try:
-                    line_data = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if line_data is None or 'sample' not in line_data or 'feedback' not in line_data:
-                    continue
-                try:
-                    sample_a, sample_b = line_data['sample']
-                    score = (line_data['feedback']['slop_comparison'] - 3) / 3
-                except Exception:
-                    continue
+                line_data = json.loads(line)
+                sample_a, sample_b = line_data["sample"]
+                score = (line_data["feedback"]["slop_comparison"] - 3) / 3
+                
                 if score == 0:
                     continue
+                
+                # Process both samples and yield individual datapoints
                 for dp in process_sample(sample_a, self.tokenizer, self.max_length, -score):
-                    if dp is not None:
-                        yield dp
+                    yield dp
                 for dp in process_sample(sample_b, self.tokenizer, self.max_length, score):
-                    if dp is not None:
-                        yield dp
+                    yield dp
 
 def process_sample(sample, tokenizer, max_length, score):
     original_text = sample["text"]
+    if not original_text or not original_text.strip():
+        return []  # Return empty list for empty/None text
+        
     tokens = tokenizer.encode(original_text, add_special_tokens=False)
     
     if len(tokens) <= max_length:
-        # Tokenize properly with return_tensors
-        tokenized = tokenizer(
-            original_text,
-            truncation=True,
-            max_length=max_length,
-            return_tensors="pt",
-            add_special_tokens=False
-        )
-        return [{
-            "input_ids": tokenized["input_ids"][0],
-            "attention_mask": tokenized["attention_mask"][0],
-            "labels": tokenized["input_ids"][0],  # For causal LM training
-            "score": score,
-            "completion": "a" if score > 0 else "b"
-        }]
+        try:
+            # Tokenize properly with return_tensors
+            tokenized = tokenizer(
+                original_text,
+                truncation=True,
+                max_length=max_length,
+                return_tensors="pt",
+                add_special_tokens=False
+            )
+            return [{
+                "input_ids": tokenized["input_ids"][0],
+                "attention_mask": tokenized["attention_mask"][0],
+                "labels": tokenized["input_ids"][0],  # For causal LM training
+                "score": score,
+                "completion": "a" if score > 0 else "b"
+            }]
+        except Exception as e:
+            print(f"Tokenization error: {e}")
+            return []  # Return empty list on tokenization error
 
     # Use newlines as primary delimiter, fallback to whitespace if no newline present
     if "\n" in original_text:
