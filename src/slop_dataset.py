@@ -32,30 +32,24 @@ class LazySlopIterableDataset(IterableDataset):
                 if not line.strip():
                     continue
                 try:
-                    data = json.loads(line)
+                    line_data = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if data is None:
+                if line_data is None or 'sample' not in line_data or 'feedback' not in line_data:
                     continue
-                # If the data has 'sample' and 'feedback', process accordingly
-                if 'sample' in data and 'feedback' in data:
-                    try:
-                        sample_a, sample_b = data['sample']
-                        score = (data['feedback']['slop_comparison'] - 3) / 3
-                    except Exception:
-                        continue
-                    if score == 0:
-                        continue
-                    for dp in process_sample(sample_a, self.tokenizer, self.max_length, -score):
-                        if dp is not None:
-                            yield dp
-                    for dp in process_sample(sample_b, self.tokenizer, self.max_length, score):
-                        if dp is not None:
-                            yield dp
-                else:
-                    tokenized = self.tokenizer(data, truncation=True, max_length=self.max_length)
-                    if tokenized is not None:
-                        yield tokenized
+                try:
+                    sample_a, sample_b = line_data['sample']
+                    score = (line_data['feedback']['slop_comparison'] - 3) / 3
+                except Exception:
+                    continue
+                if score == 0:
+                    continue
+                for dp in process_sample(sample_a, self.tokenizer, self.max_length, -score):
+                    if dp is not None:
+                        yield dp
+                for dp in process_sample(sample_b, self.tokenizer, self.max_length, score):
+                    if dp is not None:
+                        yield dp
 
 def process_sample(sample, tokenizer, max_length, score):
     original_text = sample["text"]
