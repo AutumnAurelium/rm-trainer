@@ -32,13 +32,30 @@ class LazySlopIterableDataset(IterableDataset):
                 if not line.strip():
                     continue
                 try:
-                    sample = json.loads(line)
+                    data = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if sample is None:
+                if data is None:
                     continue
-                tokenized = self.tokenizer(sample, truncation=True, max_length=self.max_length)
-                yield tokenized
+                # If the data has 'sample' and 'feedback', process accordingly
+                if 'sample' in data and 'feedback' in data:
+                    try:
+                        sample_a, sample_b = data['sample']
+                        score = (data['feedback']['slop_comparison'] - 3) / 3
+                    except Exception:
+                        continue
+                    if score == 0:
+                        continue
+                    for dp in process_sample(sample_a, self.tokenizer, self.max_length, -score):
+                        if dp is not None:
+                            yield dp
+                    for dp in process_sample(sample_b, self.tokenizer, self.max_length, score):
+                        if dp is not None:
+                            yield dp
+                else:
+                    tokenized = self.tokenizer(data, truncation=True, max_length=self.max_length)
+                    if tokenized is not None:
+                        yield tokenized
 
 def process_sample(sample, tokenizer, max_length, score):
     original_text = sample["text"]
