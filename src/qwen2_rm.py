@@ -15,7 +15,11 @@ class Qwen2ForCausalLMPermittedTokens(Qwen2PreTrainedModel, GenerationMixin):
         self.model = Qwen2Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-        self.permitted_token_ids = torch.tensor(permitted_token_ids)
+        # Register as buffer to ensure proper device placement
+        self.register_buffer("permitted_token_mask", 
+                           torch.zeros(config.vocab_size, dtype=torch.bool))
+        if permitted_token_ids is not None:
+            self.permitted_token_mask[permitted_token_ids] = True
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -107,16 +111,27 @@ class Qwen2ForCausalLMPermittedTokens(Qwen2PreTrainedModel, GenerationMixin):
         
         # this is where we restrict it to the permitted tokens
         hidden_states = outputs[0]
-        # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
-        logits = self.lm_head(hidden_states[:, -num_logits_to_keep:, :])
-        mask = torch.full_like(logits, -99)
-        target_indices = self.permitted_token_ids
-        mask[..., target_indices] = logits[..., target_indices]
-        logits = mask
+        # Calculate only required logits
+        if num_logits_to_keep <= 0:
+            num_logits_to_keep = hidden_states.shape[1]
+        hidden_states_slice = hidden_states[:, -num_logits_to_keep:, :]
+        
+        # Compute all logits first
+        logits = self.lm_head(hidden_states_slice)
+        
+        # Use additive masking instead of full tensor creation
+        logits = logits.clone()
+        logits[:, :, ~self.permitted_token_mask] = -99
 
+        # Calculate loss using built-in cross entropy
         loss = None
         if labels is not None:
-            loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
+            # Shift labels and logits for causal LM loss
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = labels[..., 1:].contiguous()
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(shift_logits.view(-1, self.config.vocab_size), 
+                          shift_labels.view(-1))
 
         if not return_dict:
             output = (logits,) + outputs[1:]

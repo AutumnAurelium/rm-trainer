@@ -10,3 +10,6 @@ wheels/
 .venv
 
 data/
+results/
+final_model/
+wandb/
