@@ -27,20 +27,18 @@ class LazySlopIterableDataset(IterableDataset):
         self.max_length = max_length
     
     def __iter__(self):
-        with open(self.filename, "r") as f:
+        with open(self.filename, 'r') as f:
             for line in f:
-                line_data = json.loads(line)
-                sample_a, sample_b = line_data["sample"]
-                score = (line_data["feedback"]["slop_comparison"] - 3) / 3
-                
-                if score == 0:
+                if not line.strip():
                     continue
-                
-                # Process both samples and yield individual datapoints
-                for dp in process_sample(sample_a, self.tokenizer, self.max_length, -score):
-                    yield dp
-                for dp in process_sample(sample_b, self.tokenizer, self.max_length, score):
-                    yield dp
+                try:
+                    sample = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if sample is None:
+                    continue
+                tokenized = self.tokenizer(sample, truncation=True, max_length=self.max_length)
+                yield tokenized
 
 def process_sample(sample, tokenizer, max_length, score):
     original_text = sample["text"]
