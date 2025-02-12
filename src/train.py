@@ -59,7 +59,6 @@ training_args = TrainingArguments(
     max_steps=10000,
     learning_rate=2e-5,
     warmup_steps=1000,
-    deepspeed=deepspeed_config,
     dataloader_num_workers=4,
     dataloader_pin_memory=True,
     remove_unused_columns=False,
