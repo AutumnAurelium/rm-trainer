@@ -17,7 +17,18 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 permitted_token_ids = [tokenizer.encode(token)[0] for token in permitted_tokens]
 
-model = Qwen2ForCausalLMPermittedTokens.from_pretrained(model_name, permitted_token_ids=permitted_token_ids)
+# Initialize the model with device placement and dtype specifications
+model = Qwen2ForCausalLMPermittedTokens.from_pretrained(
+    model_name,
+    permitted_token_ids=permitted_token_ids,
+    torch_dtype=torch.float16,  # Specify dtype since we're using fp16
+    device_map="auto"  # Let the model handle device placement
+)
+
+# Ensure the model parameters are properly initialized
+for param in model.parameters():
+    if param is None:
+        raise ValueError("Found None parameter in model initialization")
 
 # Set the model to training mode
 model.train()
@@ -59,7 +70,8 @@ training_args = TrainingArguments(
     fp16=True,
     adam_beta1=0.9,
     adam_beta2=0.95,
-    weight_decay=0.01
+    weight_decay=0.01,
+    ddp_find_unused_parameters=False  # Add this to prevent DDP issues
 )
 
 # Initialize wandb
