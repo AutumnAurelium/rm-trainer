@@ -22,7 +22,7 @@ model = Qwen2ForCausalLMPermittedTokens.from_pretrained(
     model_name,
     permitted_token_ids=permitted_token_ids,
     torch_dtype=torch.float16,  # Specify dtype since we're using fp16
-    device_map="auto"  # Let the model handle device placement
+    device_map="cuda"
 )
 
 # Ensure the model parameters are properly initialized
