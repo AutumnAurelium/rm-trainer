@@ -45,9 +45,9 @@ training_args = TrainingArguments(
     save_strategy="steps",
     save_steps=500,
     report_to=["wandb"],
-    max_steps=10000,  # Updated to match total_num_steps in ds_config
-    learning_rate=2e-5,  # Added to match warmup_max_lr in ds_config
-    warmup_steps=1000,  # Added to match warmup_num_steps in ds_config
+    max_steps=10000,
+    learning_rate=2e-5,
+    warmup_steps=1000,
     deepspeed=deepspeed_config,
     dataloader_num_workers=4,
     dataloader_pin_memory=True,
@@ -55,7 +55,11 @@ training_args = TrainingArguments(
     logging_dir="./logs",
     push_to_hub=False,
     load_best_model_at_end=False,
-    disable_tqdm=True
+    disable_tqdm=True,
+    fp16=True,
+    adam_beta1=0.9,
+    adam_beta2=0.95,
+    weight_decay=0.01
 )
 
 # Initialize wandb
