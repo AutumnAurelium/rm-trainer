@@ -38,30 +38,22 @@ data_collator = DataCollatorForLanguageModeling(
 # Update training arguments for cloud deployment
 training_args = TrainingArguments(
     output_dir="results",
-    per_device_train_batch_size=8,  # Increased for cloud GPUs
-    gradient_accumulation_steps=4,  # Better memory utilization
+    per_device_train_batch_size=8,
+    gradient_accumulation_steps=4,
     gradient_checkpointing=True,
     logging_steps=10,
     save_strategy="steps",
-    save_steps=500,  # Save checkpoints periodically
-    learning_rate=1e-5,
-    optim="adamw_torch",  # Correct optimizer reference
+    save_steps=500,
     report_to=["wandb"],
-    max_steps=5000,  # Increased training steps
-    fp16=True,  # Enable mixed precision
-    deepspeed=deepspeed_config,  # DeepSpeed integration
-    dataloader_num_workers=4,  # Better data loading
+    max_steps=5000,
+    deepspeed=deepspeed_config,
+    dataloader_num_workers=4,
     dataloader_pin_memory=True,
-    remove_unused_columns=False,  # Required for some dataset types
+    remove_unused_columns=False,
     logging_dir="./logs",
-    warmup_steps=500,
-    weight_decay=0.01,
-    evaluation_strategy="no",
-    max_grad_norm=1.0,
-    lr_scheduler_type="cosine",
     push_to_hub=False,
     load_best_model_at_end=False,
-    disable_tqdm=True  # Disable in non-interactive env
+    disable_tqdm=True
 )
 
 # Initialize wandb
