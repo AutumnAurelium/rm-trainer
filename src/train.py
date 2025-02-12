@@ -74,31 +74,34 @@ training_args = TrainingArguments(
     ddp_find_unused_parameters=False  # Add this to prevent DDP issues
 )
 
-# Initialize wandb
-wandb.init(
-    project="qwen-permitted-tokens",
-    config={
-        "model_name": model_name,
-        "permitted_tokens": permitted_tokens,
-        "num_epochs": training_args.num_train_epochs,
-        "batch_size": training_args.per_device_train_batch_size,
-        "learning_rate": training_args.learning_rate,
-    }
-)
+# Initialize wandb only on the main process
+if training_args.local_rank == 0:  # Only run on main process
+    wandb.init(
+        project="qwen-permitted-tokens",
+        config={
+            "model_name": model_name,
+            "permitted_tokens": permitted_tokens,
+            "num_epochs": training_args.num_train_epochs,
+            "batch_size": training_args.per_device_train_batch_size,
+            "learning_rate": training_args.learning_rate,
+        }
+    )
 
 # Update trainer with data collator
 trainer = ScaledSFTTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    data_collator=data_collator  # Added data collation
+    data_collator=data_collator
 )
 
 # Add error handling for cloud environment
 try:
     trainer.train()
 except Exception as e:
-    wandb.alert(title="Training Failed", text=str(e))
+    if training_args.local_rank == 0:  # Only log error on main process
+        wandb.alert(title="Training Failed", text=str(e))
     raise
 finally:
-    wandb.finish() 
+    if training_args.local_rank == 0:  # Only finish wandb on main process
+        wandb.finish() 
