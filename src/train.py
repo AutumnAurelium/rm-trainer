@@ -81,7 +81,8 @@ if training_args.local_rank == 0:  # Only run on main process
 trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
-    train_dataset=train_dataset
+    train_dataset=train_dataset,
+    processing_class=tokenizer
 )
 
 # Add error handling for cloud environment
