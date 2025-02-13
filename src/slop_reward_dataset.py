@@ -26,6 +26,7 @@ class SlopRewardIterableDataset(IterableDataset):
         self.filename = filename
         self.tokenizer = tokenizer
         self.max_tokens = max_tokens
+        self.column_names = ["chosen", "rejected", "score"]
         
     def __len__(self):
         """Relatively costly on large datasets. Don't do this lightly."""
