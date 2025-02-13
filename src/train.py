@@ -3,6 +3,8 @@ from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClass
 import wandb
 import os
 
+from trl import RewardConfig
+
 from scaled_reward_trainer import ScaledRewardTrainer
 
 # Import the lazy dataset class directly
@@ -36,7 +38,7 @@ train_dataset = SlopRewardIterableDataset(
 )
 
 # Update training arguments for cloud deployment
-training_args = TrainingArguments(
+training_args = RewardConfig(
     output_dir="results",
     per_device_train_batch_size=8,
     gradient_accumulation_steps=4,
@@ -60,7 +62,7 @@ training_args = TrainingArguments(
     adam_beta2=0.95,
     weight_decay=0.01,
     deepspeed="ds_config.json",
-    ddp_find_unused_parameters=False  # Add this to prevent DDP issues
+    ddp_find_unused_parameters=False
 )
 
 # Initialize wandb only on the main process
