@@ -23,13 +23,10 @@ import json
 
 class SlopRewardIterableDataset(IterableDataset):
     def __init__(self, filename: str, tokenizer: AutoTokenizer, max_tokens: int):
+        super().__init__()
         self.filename = filename
         self.tokenizer = tokenizer
         self.max_tokens = max_tokens
-        
-    def __len__(self):
-        """Relatively costly on large datasets. Don't do this lightly."""
-        return sum(1 for _ in open(self.filename))
     
     def split_sample(self, sample, split_on: Literal["newline", "period", "space", "token"] = "newline"):
         if split_on not in ["newline", "period", "space", "token"]:
@@ -43,11 +40,11 @@ class SlopRewardIterableDataset(IterableDataset):
         # In order, our preference is to split on newlines, periods, or spaces.
         
         if split_on == "newline":
-            splits = re.split(r'[\n]', sample)
+            splits = re.split(r'(\n+)', sample)
         elif split_on == "period":
-            splits = re.split(r'[\.]', sample)
+            splits = re.split(r'(\.+)', sample)
         elif split_on == "space":
-            splits = re.split(r'[\s]', sample)
+            splits = re.split(r'(\s+)', sample)
         else:
             # If all else fails, split on token boundaries.
             splits = []
@@ -68,7 +65,7 @@ class SlopRewardIterableDataset(IterableDataset):
             else:
                 final_splits.append(split)
         
-        return final_splits
+        return [s.strip() for s in final_splits if s.strip()]
     
     def __iter__(self):
         with open(self.filename, "r") as f:
