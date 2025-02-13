@@ -1,26 +1,21 @@
 import torch
-from qwen2_rm import Qwen2ForCausalLMPermittedTokens
-from transformers import AutoTokenizer, TrainingArguments, DataCollatorForLanguageModeling
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification
 import wandb
-import os  # Added for environment variables
+import os
 
-from scaled_sft_trainer import ScaledSFTTrainer
+from scaled_reward_trainer import ScaledRewardTrainer
+
 # Import the lazy dataset class directly
-from slop_dataset import LazySlopIterableDataset
+from slop_reward_dataset import SlopRewardIterableDataset
 
 # Use environment variables for configuration
 model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B")
-permitted_tokens = ["a", "b"]  # Expect comma-separated tokens
-deepspeed_config = os.getenv("DEEPSPEED_CONFIG", "ds_config.json")
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-permitted_token_ids = [tokenizer.encode(token)[0] for token in permitted_tokens]
-
 # Initialize the model with device placement and dtype specifications
-model = Qwen2ForCausalLMPermittedTokens.from_pretrained(
+model = Qwen2ForSequenceClassification.from_pretrained(
     model_name,
-    permitted_token_ids=permitted_token_ids,
     torch_dtype=torch.float16,  # Specify dtype since we're using fp16
     device_map="cuda"
 )
@@ -34,16 +29,10 @@ for param in model.parameters():
 model.train()
 
 # Create the lazy dataset using IterableDataset
-train_dataset = LazySlopIterableDataset(
+train_dataset = SlopRewardIterableDataset(
     "data/dclm_slop_results.jsonl",
     tokenizer,
-    max_length=256  # Renamed from max_tokens for consistency
-)
-
-# Add data collator for better batch handling
-data_collator = DataCollatorForLanguageModeling(
-    tokenizer=tokenizer,
-    mlm=False
+    max_tokens=1024
 )
 
 # Update training arguments for cloud deployment
@@ -56,7 +45,7 @@ training_args = TrainingArguments(
     save_strategy="steps",
     save_steps=500,
     report_to=["wandb"],
-    max_steps=10000,
+    max_steps=len(train_dataset),
     learning_rate=2e-5,
     warmup_steps=1000,
     dataloader_num_workers=4,
@@ -77,10 +66,9 @@ training_args = TrainingArguments(
 # Initialize wandb only on the main process
 if training_args.local_rank == 0:  # Only run on main process
     wandb.init(
-        project="qwen-permitted-tokens",
+        project="qwen-slop-reward",
         config={
             "model_name": model_name,
-            "permitted_tokens": permitted_tokens,
             "num_epochs": training_args.num_train_epochs,
             "batch_size": training_args.per_device_train_batch_size,
             "learning_rate": training_args.learning_rate,
@@ -88,11 +76,10 @@ if training_args.local_rank == 0:  # Only run on main process
     )
 
 # Update trainer with data collator
-trainer = ScaledSFTTrainer(
+trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
-    train_dataset=train_dataset,
-    data_collator=data_collator
+    train_dataset=train_dataset
 )
 
 # Add error handling for cloud environment
