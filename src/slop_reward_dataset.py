@@ -90,22 +90,17 @@ class SlopRewardIterableDataset(IterableDataset):
                 
                 score_adjusted = (score - 4) / 3
                 
-                for sample_a_split in sample_a_split:
-                    for sample_b_split in sample_b_split:
+                for a_chunk in sample_a_split:
+                    for b_chunk in sample_b_split:
                         if score_adjusted > 0: # prefers sample_b
                             yield {
-                                "chosen": prompt.format(sample_b_url, sample_b_split),
-                                "rejected": prompt.format(sample_a_url, sample_a_split),
+                                "chosen": prompt.format(sample_b_url, b_chunk),
+                                "rejected": prompt.format(sample_a_url, a_chunk),
                                 "score": abs(score_adjusted)
                             }
                         else: # prefers sample_a
                             yield {
-                                "chosen": prompt.format(sample_a_url, sample_a_split),
-                                "rejected": prompt.format(sample_b_url, sample_b_split),
+                                "chosen": prompt.format(sample_a_url, a_chunk),
+                                "rejected": prompt.format(sample_b_url, b_chunk),
                                 "score": abs(score_adjusted)
                             }
-                
-                
-
-    def __getitem__(self, idx):
-        pass
