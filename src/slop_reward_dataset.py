@@ -16,7 +16,7 @@ b. Spam, SEO-optimized, or machine-generated content
 
 from typing import Literal
 from transformers import AutoTokenizer
-from torch.utils.data import IterableDataset
+from datasets import IterableDataset
 import re
 import json
 
@@ -26,7 +26,6 @@ class SlopRewardIterableDataset(IterableDataset):
         self.filename = filename
         self.tokenizer = tokenizer
         self.max_tokens = max_tokens
-        self.column_names = ["chosen", "rejected", "score"]
         
     def __len__(self):
         """Relatively costly on large datasets. Don't do this lightly."""
