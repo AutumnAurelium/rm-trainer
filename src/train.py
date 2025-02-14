@@ -21,7 +21,9 @@ if tokenizer.pad_token is None:
 model = AutoModelForSequenceClassification.from_pretrained(
     model_name,
     torch_dtype=torch.bfloat16,
-    num_labels=1
+    num_labels=1,
+    problem_type="regression",
+    ignore_mismatched_sizes=True
 )
 
 model.config.pad_token_id = tokenizer.pad_token_id
