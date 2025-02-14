@@ -84,8 +84,8 @@ def train_reward_model():
         report_to="none",
         remove_unused_columns=False,
         use_liger_kernel=True,
-        ddp_backend="nccl",
-        ddp_find_unused_parameters=False,
+        # ddp_backend="nccl",
+        # ddp_find_unused_parameters=False,
     )
 
     # Initialize custom trainer
