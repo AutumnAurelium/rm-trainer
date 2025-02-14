@@ -17,13 +17,12 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"  # Ensure consistent padding direction
 
-# Initialize the model with device placement and dtype specifications
+# Initialize the model without device_map when using DeepSpeed
 model = AutoModelForSequenceClassification.from_pretrained(
     "Qwen/Qwen2.5-7B",
-    device_map="auto",  # Automatic device placement
     low_cpu_mem_usage=True,
     torch_dtype=torch.float16,
-    use_cache=False,  # Required for parallel training
+    use_cache=False,
     num_labels=1
 )
 
