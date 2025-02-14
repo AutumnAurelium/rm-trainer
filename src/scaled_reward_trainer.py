@@ -23,8 +23,7 @@ class ScaledRewardTrainer(Trainer):
             args=args,
             processing_class=processing_class,
             train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            use_liger_kernel=use_liger_kernel
+            eval_dataset=eval_dataset
         )
         self.config = config
         self.margin = 1.0
