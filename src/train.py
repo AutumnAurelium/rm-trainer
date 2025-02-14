@@ -19,9 +19,11 @@ if tokenizer.pad_token is None:
 
 # Initialize the model with device placement and dtype specifications
 model = AutoModelForSequenceClassification.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16,  # Specify dtype since we're using fp16
-    device_map="cuda",
+    "Qwen/Qwen2.5-7B",
+    device_map="auto",  # Automatic device placement
+    low_cpu_mem_usage=True,
+    torch_dtype=torch.float16,
+    use_cache=False,  # Required for parallel training
     num_labels=1
 )
 

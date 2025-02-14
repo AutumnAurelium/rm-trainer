@@ -26,15 +26,34 @@
         }
     },
     "zero_optimization": {
-        "stage": 2,
-        "allgather_partitions": true,
-        "allgather_bucket_size": 2e8,
-        "overlap_comm": true,
-        "reduce_scatter": true,
-        "reduce_bucket_size": 2e8,
-        "contiguous_gradients": true
+        "stage": 3,
+        "contiguous_gradients": true,
+        "stage3_max_live_parameters": 1e9,
+        "stage3_max_reuse_distance": 1e9,
+        "stage3_param_persistence_threshold": 1e5,
+        "stage3_prefetch_bucket_size": 5e8,
+        "offload_optimizer": {
+            "device": "cpu",
+            "pin_memory": true
+        },
+        "offload_param": {
+            "device": "cpu",
+            "pin_memory": true
+        }
+    },
+    "tensor_parallel": {
+        "enabled": true,
+        "tensor_parallel_degree": 2
+    },
+    "pipeline_parallel": {
+        "enabled": false,
+        "num_stages": 1
     },
     "gradient_clipping": 1.0,
     "train_micro_batch_size_per_gpu": "auto",
-    "wall_clock_breakdown": false
+    "wall_clock_breakdown": false,
+    "comms_logger": {
+        "enabled": true,
+        "verbose": false
+    }
 } 
