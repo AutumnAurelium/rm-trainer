@@ -20,7 +20,7 @@ if tokenizer.pad_token is None:
 # Initialize the model with device placement and dtype specifications
 model = AutoModelForSequenceClassification.from_pretrained(
     model_name,
-    torch_dtype=torch.float16, 
+    torch_dtype=torch.bfloat16,
     device_map="cuda",
     num_labels=1
 )
@@ -107,6 +107,7 @@ if training_args.local_rank == 0:  # Only run on main process
 # Update trainer initialization
 trainer = ScaledRewardTrainer(
     model=model,
+    config=RewardConfig(max_length=768),
     args=training_args,
     processing_class=tokenizer,
     train_dataset=train_dataset
