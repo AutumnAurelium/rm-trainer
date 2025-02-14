@@ -117,4 +117,4 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
     dataset = asyncio.run(main(tokenizer, args.max_tokens))
-    dataset.save_to_disk(args.output_file)
+    dataset.save_to_file(args.output_file)
