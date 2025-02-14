@@ -2,7 +2,8 @@ import torch
 from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification
 import wandb
 import os
-from datasets import Dataset, load_dataset
+import pandas as pd
+from torch.utils.data import Dataset, DataLoader
 from trl import RewardConfig
 
 from scaled_reward_trainer import ScaledRewardTrainer
@@ -34,32 +35,54 @@ for param in model.parameters():
 
 model.train()
 
-raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet", streaming=True)["train"]
+# Replace HF dataset loading with pandas
+df = pd.read_parquet("data/dclm_slop_results.parquet")
 
-def tokenize_pair(examples):
-    tokenized_chosen = tokenizer(
-        examples["chosen"], 
-        truncation=True,
-        max_length=768  # Keep truncation but remove padding
-    )
-    tokenized_rejected = tokenizer(
-        examples["rejected"],
-        truncation=True,
-        max_length=768
-    )
-    return {
-        "chosen_input_ids": tokenized_chosen["input_ids"],
-        "chosen_attention_mask": tokenized_chosen["attention_mask"],
-        "rejected_input_ids": tokenized_rejected["input_ids"],
-        "rejected_attention_mask": tokenized_rejected["attention_mask"],
-        "margin": examples.get("margin", 1.0)
-    }
+class ComparisonDataset(Dataset):
+    def __init__(self, dataframe, tokenizer, max_length=768):
+        self.data = dataframe
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        row = self.data.iloc[idx]
+        chosen = row["chosen"]
+        rejected = row["rejected"]
+        margin = row.get("margin", 1.0)
 
-# Process with batched streaming
-train_dataset = raw_dataset.map(
-    tokenize_pair,
-    batched=True,
-    batch_size=1000  # Adjust based on memory constraints
+        # Tokenize without padding (will pad in collate_fn)
+        chosen_tokens = self.tokenizer(
+            chosen,
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt"
+        )
+        rejected_tokens = self.tokenizer(
+            rejected,
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt"
+        )
+        
+        return {
+            "chosen_input_ids": chosen_tokens["input_ids"].squeeze(0),
+            "chosen_attention_mask": chosen_tokens["attention_mask"].squeeze(0),
+            "rejected_input_ids": rejected_tokens["input_ids"].squeeze(0),
+            "rejected_attention_mask": rejected_tokens["attention_mask"].squeeze(0),
+            "margin": torch.tensor(margin, dtype=torch.float)
+        }
+
+# Create dataset and dataloader
+train_dataset = ComparisonDataset(df, tokenizer)
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=1000,  # Matches original batch size
+    shuffle=True,
+    num_workers=4,
+    pin_memory=True
 )
 
 # Update training arguments to use standard HF Arguments
@@ -104,7 +127,7 @@ if training_args.local_rank == 0:  # Only run on main process
         }
     )
 
-# Update trainer initialization
+# Update trainer initialization to use our dataloader
 trainer = ScaledRewardTrainer(
     model=model,
     config=RewardConfig(
@@ -113,7 +136,7 @@ trainer = ScaledRewardTrainer(
     ),
     args=training_args,
     processing_class=tokenizer,
-    train_dataset=train_dataset
+    train_dataset=train_dataset  # Still works with PyTorch Dataset
 )
 
 # Add error handling for cloud environment
