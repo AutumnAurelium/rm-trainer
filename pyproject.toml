@@ -14,5 +14,6 @@ dependencies = [
     "deepspeed>=0.15.0",
     "accelerate>=0.4.10",
     "flash-attn>=2.5.1",
-    "liger-kernel>=0.1.0"
+    "liger-kernel>=0.1.0",
+    "bitsandbytes>=0.43.1"
 ]
