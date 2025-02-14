@@ -59,8 +59,8 @@ train_dataset = raw_dataset.map(
 # Update training arguments to use standard HF Arguments
 training_args = TrainingArguments(
     output_dir="results",
-    per_device_train_batch_size=1,
-    gradient_accumulation_steps=4,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=2,
     gradient_checkpointing=True,
     logging_steps=1,
     save_strategy="steps",
@@ -73,14 +73,12 @@ training_args = TrainingArguments(
     logging_dir="./logs",
     push_to_hub=False,
     bf16=True,
-    optim="adamw_bnb_8bit",
     adam_beta1=0.9,
     adam_beta2=0.95,
     remove_unused_columns=False,
     weight_decay=0.01,
     deepspeed="ds_config.json",
-    use_liger_kernel=True,
-    gradient_checkpointing_kwargs={"use_reentrant": False}
+    gradient_checkpointing_kwargs={"use_reentrant": True}
 )
 
 # Initialize wandb only on the main process
