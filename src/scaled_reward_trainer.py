@@ -35,29 +35,31 @@ class ScaledRewardTrainer(Trainer):
         self.data_collator = self._pad_collate
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        # Process chosen and rejected pairs
-        chosen_inputs = {
-            "input_ids": inputs["chosen_input_ids"],
-            "attention_mask": inputs["chosen_attention_mask"]
-        }
-        rejected_inputs = {
-            "input_ids": inputs["rejected_input_ids"],
-            "attention_mask": inputs["rejected_attention_mask"]
-        }
-
-        # Get scores for both sequences
-        chosen_scores = model(**chosen_inputs).logits
-        rejected_scores = model(**rejected_inputs).logits
+        # Extract margin values and remove from inputs
+        margins = inputs.pop("margin", None)
         
-        # Calculate difference with margin
-        margin = inputs.get("margin", self.margin)
-        diff = chosen_scores - rejected_scores - margin
-        labels = torch.ones_like(chosen_scores)
+        # Get model outputs for both chosen and rejected
+        chosen_output = model(
+            input_ids=inputs["chosen_input_ids"],
+            attention_mask=inputs["chosen_attention_mask"]
+        )
+        rejected_output = model(
+            input_ids=inputs["rejected_input_ids"],
+            attention_mask=inputs["rejected_attention_mask"]
+        )
         
-        # Compute custom loss
-        loss = self.loss_fct(diff, labels)
+        # Calculate difference between rewards
+        diff = chosen_output.logits - rejected_output.logits
         
-        return (loss, (chosen_scores, rejected_scores)) if return_outputs else loss
+        # Convert margins to tensor if needed
+        if margins is not None and not torch.is_tensor(margins):
+            margins = torch.tensor(margins, dtype=diff.dtype, device=diff.device)
+        
+        # Use MSE loss instead of BCE
+        loss_fct = nn.MSELoss()
+        loss = loss_fct(diff, margins)
+        
+        return (loss, {"chosen_output": chosen_output, "rejected_output": rejected_output}) if return_outputs else loss
 
     def _prepare_dataset(self, dataset):
         # Handle streaming datasets differently
