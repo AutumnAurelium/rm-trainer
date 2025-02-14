@@ -30,6 +30,10 @@ model.train()
 # Create the lazy dataset using IterableDataset
 train_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
 
+# Ensure the dataset has the score column
+if "score" not in train_dataset.column_names:
+    raise ValueError("Dataset must contain a 'score' column")
+
 # Update training arguments for cloud deployment
 training_args = RewardConfig(
     output_dir="results",
@@ -75,7 +79,9 @@ trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    processing_class=tokenizer
+    tokenizer=tokenizer,
+    dataset_kwargs={"columns": ["input_ids_chosen", "attention_mask_chosen", 
+                               "input_ids_rejected", "attention_mask_rejected", "score"]}
 )
 
 # Add error handling for cloud environment
