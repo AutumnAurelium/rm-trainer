@@ -4,6 +4,7 @@ from torch import nn
 from transformers import Trainer, PreTrainedModel
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import EvalPrediction
+from transformers.training_args import TrainingArguments
 from datasets import Dataset
 from trl import RewardConfig
 
