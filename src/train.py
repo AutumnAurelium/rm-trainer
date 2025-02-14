@@ -90,7 +90,8 @@ training_args = TrainingArguments(
     weight_decay=0.01,
     deepspeed="ds_config.json",
     ddp_find_unused_parameters=False,
-    use_liger_kernel=True
+    use_liger_kernel=True,
+    gradient_checkpointing_kwargs={"use_reentrant": False}
 )
 
 # Initialize wandb only on the main process
