@@ -34,11 +34,13 @@ raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet
 def tokenize_pair(examples):
     tokenized_chosen = tokenizer(
         examples["chosen"], 
-        max_length=768
+        max_length=768,
+        truncation=True
     )
     tokenized_rejected = tokenizer(
         examples["rejected"],
-        max_length=768
+        max_length=768,
+        truncation=True
     )
     return {
         "chosen_input_ids": tokenized_chosen["input_ids"],
