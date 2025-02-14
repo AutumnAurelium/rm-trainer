@@ -66,14 +66,13 @@ def train_reward_model():
 
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
 
-    # Training arguments with DeepSpeed config
     training_args = TrainingArguments(
         output_dir="./results",
         per_device_train_batch_size=4,
         num_train_epochs=3,
         learning_rate=1e-5,
         bf16=True,
-        deepspeed="ds_config.json",
+        # deepspeed="ds_config.json",
         gradient_checkpointing=True,
         optim="adamw_bnb_8bit",
         logging_steps=10,
