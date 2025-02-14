@@ -32,38 +32,34 @@ for param in model.parameters():
     if param is None:
         raise ValueError("Found None parameter in model initialization")
 
-# Set the model to training mode
 model.train()
 
-# Update dataset preparation (note: requires preprocessed chosen/rejected columns)
+raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet", streaming=True)["train"]
+
 def tokenize_pair(examples):
-    # This assumes your raw data has "chosen" and "rejected" text fields
     tokenized_chosen = tokenizer(
         examples["chosen"], 
         truncation=True,
-        max_length=768,
-        padding="max_length"
+        max_length=768  # Keep truncation but remove padding
     )
     tokenized_rejected = tokenizer(
         examples["rejected"],
         truncation=True,
-        max_length=768,
-        padding="max_length"
+        max_length=768
     )
     return {
         "chosen_input_ids": tokenized_chosen["input_ids"],
         "chosen_attention_mask": tokenized_chosen["attention_mask"],
         "rejected_input_ids": tokenized_rejected["input_ids"],
         "rejected_attention_mask": tokenized_rejected["attention_mask"],
-        "margin": examples.get("margin", 1.0)  # Allow per-example margins
+        "margin": examples.get("margin", 1.0)
     }
 
-# Process dataset with pairs
-raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
+# Process with batched streaming
 train_dataset = raw_dataset.map(
     tokenize_pair,
     batched=True,
-    remove_columns=raw_dataset.column_names
+    batch_size=1000  # Adjust based on memory constraints
 )
 
 # Update training arguments to use standard HF Arguments
