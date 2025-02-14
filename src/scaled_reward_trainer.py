@@ -2,7 +2,7 @@ from trl import RewardTrainer
 import torch
 
 class ScaledRewardTrainer(RewardTrainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         scores = inputs.pop("score")
         rewards_chosen = model(input_ids=inputs["input_ids_chosen"], 
                              attention_mask=inputs["attention_mask_chosen"])[0]
