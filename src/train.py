@@ -24,6 +24,8 @@ model = Qwen2ForSequenceClassification.from_pretrained(
     device_map="cuda"
 )
 
+model.config.pad_token_id = tokenizer.pad_token_id
+
 # Ensure the model parameters are properly initialized
 for param in model.parameters():
     if param is None:
