@@ -39,6 +39,8 @@ def train_reward_model():
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
     tokenizer.pad_token = tokenizer.eos_token
     model.config.pad_token_id = tokenizer.pad_token_id
+    
+    model.to("cuda")
 
     # Load and preprocess dataset
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
