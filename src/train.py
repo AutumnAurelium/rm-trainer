@@ -69,7 +69,7 @@ train_dataset = raw_dataset.map(
 # Update training arguments to use standard HF Arguments
 training_args = TrainingArguments(
     output_dir="results",
-    per_device_train_batch_size=4,
+    per_device_train_batch_size=2,
     gradient_accumulation_steps=4,
     gradient_checkpointing=True,
     logging_steps=10,
