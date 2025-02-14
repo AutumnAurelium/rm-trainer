@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification, IterableDataset
 import wandb
 import os
 import pandas as pd
@@ -127,7 +127,20 @@ if training_args.local_rank == 0:  # Only run on main process
         }
     )
 
-# Update trainer initialization to use our dataloader
+from transformers import IterableDataset
+
+class FakeIterableDataset(IterableDataset):
+    """Wrapper to make DataLoader work with HF trainer"""
+    def __init__(self, dataloader):
+        self.dataloader = dataloader
+        
+    def __iter__(self):
+        return iter(self.dataloader)
+
+# Wrap our DataLoader in HF IterableDataset
+hf_dataset = FakeIterableDataset(train_loader)
+
+# Update trainer initialization to use wrapped dataset
 trainer = ScaledRewardTrainer(
     model=model,
     config=RewardConfig(
@@ -136,7 +149,7 @@ trainer = ScaledRewardTrainer(
     ),
     args=training_args,
     processing_class=tokenizer,
-    train_dataset=train_dataset  # Still works with PyTorch Dataset
+    train_dataset=hf_dataset  # Now accepts the correct type
 )
 
 # Add error handling for cloud environment
