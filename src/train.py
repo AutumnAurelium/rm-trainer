@@ -27,11 +27,6 @@ model = AutoModelForSequenceClassification.from_pretrained(
 
 model.config.pad_token_id = tokenizer.pad_token_id
 
-# Ensure the model parameters are properly initialized
-for param in model.parameters():
-    if param is None:
-        raise ValueError("Found None parameter in model initialization")
-
 model.train()
 
 raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
@@ -39,12 +34,10 @@ raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet
 def tokenize_pair(examples):
     tokenized_chosen = tokenizer(
         examples["chosen"], 
-        truncation=True,
-        max_length=768  # Keep truncation but remove padding
+        max_length=768
     )
     tokenized_rejected = tokenizer(
         examples["rejected"],
-        truncation=True,
         max_length=768
     )
     return {
