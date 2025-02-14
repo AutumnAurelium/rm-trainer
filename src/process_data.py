@@ -77,6 +77,8 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
     if score == 4: # annotator expressed no preference
         return
     
+    score_scaled = (score - 4) / 3
+    
     for a_chunk in sample_a_split:
         for b_chunk in sample_b_split:
             if score > 0: # prefers sample_b
@@ -89,7 +91,7 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
                 yield {
                     "chosen": prompt.format(sample_a_url, a_chunk),
                     "rejected": prompt.format(sample_b_url, b_chunk),
-                    "score": abs(score)
+                    "score": abs(score_scaled)
                 }
 
 async def main(tokenizer: AutoTokenizer, max_tokens: int) -> Dataset:
