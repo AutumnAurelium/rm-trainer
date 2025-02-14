@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, DataCollatorWithPadding
 import wandb
 import os
 from datasets import Dataset, load_dataset
@@ -78,7 +78,7 @@ trainer = RewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    processing_class=tokenizer
+    processing_class=DataCollatorWithPadding(tokenizer)
 )
 
 # Add error handling for cloud environment
