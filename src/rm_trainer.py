@@ -47,13 +47,13 @@ def train_reward_model():
             examples["chosen"],
             padding="max_length",
             truncation=True,
-            max_length=512
+            max_length=768
         )
         tokenized_rejected = tokenizer(
             examples["rejected"],
             padding="max_length",
             truncation=True,
-            max_length=512
+            max_length=768
         )
         return {
             "chosen_input_ids": tokenized_chosen["input_ids"],
