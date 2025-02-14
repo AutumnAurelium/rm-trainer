@@ -84,6 +84,8 @@ def train_reward_model():
         remove_unused_columns=False,
         gradient_checkpointing_kwargs={"use_reentrant": False},
         use_liger_kernel=True,
+        ddp_backend="nccl",
+        ddp_find_unused_parameters=False
     )
 
     # Initialize custom trainer
