@@ -5,7 +5,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 class RMTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         # Split inputs into chosen and rejected
         chosen_inputs = {
             "input_ids": inputs["chosen_input_ids"],
