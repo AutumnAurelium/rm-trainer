@@ -110,7 +110,7 @@ if training_args.local_rank == 0:  # Only run on main process
 trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
-    tokenizer=tokenizer,
+    processing_class=tokenizer,
     train_dataset=train_dataset
 )
 
