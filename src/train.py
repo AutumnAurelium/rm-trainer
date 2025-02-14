@@ -77,6 +77,7 @@ training_args = TrainingArguments(
     optim="adamw_bnb_8bit",
     adam_beta1=0.9,
     adam_beta2=0.95,
+    remove_unused_columns=False,
     weight_decay=0.01,
     deepspeed="ds_config.json",
     use_liger_kernel=True,
