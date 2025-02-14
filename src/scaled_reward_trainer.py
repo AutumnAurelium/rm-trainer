@@ -14,14 +14,14 @@ class ScaledRewardTrainer(Trainer):
         model: Union[PreTrainedModel, nn.Module] = None,
         config: Optional[RewardConfig] = None,
         args: Optional[TrainingArguments] = None,
-        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        processing_class: Optional[PreTrainedTokenizerBase] = None,
         train_dataset: Optional[Dataset] = None,
         eval_dataset: Optional[Dataset] = None,
     ):
         super().__init__(
             model=model,
             args=args,
-            tokenizer=tokenizer,
+            processing_class=processing_class,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
         )
