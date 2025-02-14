@@ -38,28 +38,15 @@ class ScaledRewardTrainer(Trainer):
         # Extract margin values and remove from inputs
         margins = inputs.pop("margin", None)
         
-        # Get model outputs for both chosen and rejected
-        chosen_output = model(
-            input_ids=inputs["chosen_input_ids"],
-            attention_mask=inputs["chosen_attention_mask"]
-        )
-        rejected_output = model(
-            input_ids=inputs["rejected_input_ids"],
-            attention_mask=inputs["rejected_attention_mask"]
-        )
+        # Get model outputs and squeeze extra dimension for regression
+        outputs = model(**inputs)
+        logits = outputs.logits.squeeze(-1)  # Remove last dimension for regression task
         
-        # Calculate difference between rewards
-        diff = chosen_output.logits - rejected_output.logits
-        
-        # Convert margins to tensor if needed
-        if margins is not None and not torch.is_tensor(margins):
-            margins = torch.tensor(margins, dtype=diff.dtype, device=diff.device)
-        
-        # Use MSE loss instead of BCE
+        # Calculate MSE loss with proper shape alignment
         loss_fct = nn.MSELoss()
-        loss = loss_fct(diff, margins)
+        loss = loss_fct(logits, inputs["labels"])
         
-        return (loss, {"chosen_output": chosen_output, "rejected_output": rejected_output}) if return_outputs else loss
+        return (loss, {"chosen_output": outputs, "rejected_output": outputs}) if return_outputs else loss
 
     def _prepare_dataset(self, dataset):
         # Handle streaming datasets differently
