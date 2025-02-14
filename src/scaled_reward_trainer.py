@@ -93,7 +93,7 @@ class ScaledRewardTrainer(Trainer):
         max_length = self.config.max_length if self.config else None
         
         def pad_features(features, key):
-            return self.tokenizer.pad(
+            return self.processing_class.pad(
                 {
                     "input_ids": [x[key] for x in features],
                     "attention_mask": [x[key.replace("input_ids", "attention_mask")] for x in features]

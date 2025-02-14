@@ -41,13 +41,13 @@ def tokenize_pair(examples):
     tokenized_chosen = tokenizer(
         examples["chosen"], 
         truncation=True,
-        max_length=512,
+        max_length=2048,
         padding="max_length"
     )
     tokenized_rejected = tokenizer(
         examples["rejected"],
         truncation=True,
-        max_length=512,
+        max_length=2048,
         padding="max_length"
     )
     return {
@@ -69,7 +69,7 @@ train_dataset = raw_dataset.map(
 # Update training arguments to use standard HF Arguments
 training_args = TrainingArguments(
     output_dir="results",
-    per_device_train_batch_size=8,
+    per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
     gradient_checkpointing=True,
     logging_steps=10,
@@ -85,7 +85,7 @@ training_args = TrainingArguments(
     logging_dir="./logs",
     push_to_hub=False,
     load_best_model_at_end=False,
-    disable_tqdm=True,
+    disable_tqdm=False,
     fp16=True,
     adam_beta1=0.9,
     adam_beta2=0.95,
