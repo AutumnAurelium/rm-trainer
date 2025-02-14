@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClass
 import wandb
 import os
 from datasets import Dataset, load_dataset
-from trl import RewardConfig
+from trl import RewardConfig, RewardTrainer
 
 from scaled_reward_trainer import ScaledRewardTrainer
 
@@ -75,13 +75,11 @@ if training_args.local_rank == 0:  # Only run on main process
     )
 
 # Update trainer with data collator
-trainer = ScaledRewardTrainer(
+trainer = RewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    tokenizer=tokenizer,
-    dataset_kwargs={"columns": ["input_ids_chosen", "attention_mask_chosen", 
-                               "input_ids_rejected", "attention_mask_rejected", "score"]}
+    tokenizer=tokenizer
 )
 
 # Add error handling for cloud environment

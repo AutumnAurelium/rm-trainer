@@ -85,13 +85,13 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
                 yield {
                     "chosen": prompt.format(sample_b_url, b_chunk),
                     "rejected": prompt.format(sample_a_url, a_chunk),
-                    "score": abs(score)
+                    "margin": abs(score)
                 }
             else: # prefers sample_a
                 yield {
                     "chosen": prompt.format(sample_a_url, a_chunk),
                     "rejected": prompt.format(sample_b_url, b_chunk),
-                    "score": abs(score_scaled)
+                    "margin": abs(score_scaled)
                 }
 
 async def main(tokenizer: AutoTokenizer, max_tokens: int) -> Dataset:
