@@ -78,7 +78,8 @@ def train_reward_model():
         logging_steps=10,
         save_steps=1000,
         report_to="none",
-        remove_unused_columns=False
+        remove_unused_columns=False,
+        gradient_checkpointing_kwargs={"use_reentrant": False}
     )
 
     # Initialize custom trainer
