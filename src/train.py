@@ -89,7 +89,8 @@ training_args = TrainingArguments(
     adam_beta2=0.95,
     weight_decay=0.01,
     deepspeed="ds_config.json",
-    ddp_find_unused_parameters=False
+    ddp_find_unused_parameters=False,
+    use_liger_kernel=True
 )
 
 # Initialize wandb only on the main process
@@ -110,8 +111,7 @@ trainer = ScaledRewardTrainer(
     config=RewardConfig(max_length=768, output_dir="results"),
     args=training_args,
     processing_class=tokenizer,
-    train_dataset=train_dataset,
-    use_liger_kernel=True
+    train_dataset=train_dataset
 )
 
 # Add error handling for cloud environment
