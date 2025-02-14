@@ -1,10 +1,9 @@
 import torch
-from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification, AutoConfig
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification
 import wandb
 import os
 from datasets import Dataset, load_dataset
 from trl import RewardConfig
-from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 
 from scaled_reward_trainer import ScaledRewardTrainer
 
@@ -16,30 +15,17 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 # Configure padding settings for the tokenizer
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"  # Ensure consistent padding direction
+    tokenizer.padding_side = "right"
 
-# Initialize model with meta device and load properly
-from accelerate import init_empty_weights, load_checkpoint_and_dispatch
-
-# Load config first
-model_config = AutoConfig.from_pretrained("Qwen/Qwen2.5-7B", num_labels=1)
-
-# Create empty model on meta device
-with init_empty_weights():
-    model = AutoModelForSequenceClassification.from_config(model_config)
-
-# Load checkpoint and dispatch across devices
-model = load_checkpoint_and_dispatch(
-    model,
-    "Qwen/Qwen2.5-7B",
-    device_map="auto",  # Let DeepSpeed handle device placement
-    no_split_module_classes=["Qwen2DecoderLayer"],  # Important for Qwen architecture
-    dtype=torch.float16
+# Initialize the model with device placement and dtype specifications
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16, 
+    device_map="cuda",
+    num_labels=1
 )
 
-# Ensure model config matches tokenizer
 model.config.pad_token_id = tokenizer.pad_token_id
-model.config.use_cache = False
 
 # Ensure the model parameters are properly initialized
 for param in model.parameters():
@@ -132,8 +118,8 @@ trainer = ScaledRewardTrainer(
 try:
     trainer.train()
 except Exception as e:
-    if training_args.local_rank == 0:  # Only log error on main process
-        wandb.alert(title="Training Failed", text=str(e))
+    #if training_args.local_rank == 0:  # Only log error on main process
+    #    wandb.alert(title="Training Failed", text=str(e))
     raise
 finally:
     if training_args.local_rank == 0:  # Only finish wandb on main process
