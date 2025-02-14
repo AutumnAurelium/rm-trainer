@@ -76,6 +76,7 @@ def train_reward_model():
         bf16=True,
         # deepspeed="ds_config.json",
         gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         optim="adamw_bnb_8bit",
         logging_steps=10,
         save_steps=1000,
@@ -83,7 +84,7 @@ def train_reward_model():
         remove_unused_columns=False,
         use_liger_kernel=True,
         ddp_backend="nccl",
-        ddp_find_unused_parameters=False
+        ddp_find_unused_parameters=False,
     )
 
     # Initialize custom trainer
