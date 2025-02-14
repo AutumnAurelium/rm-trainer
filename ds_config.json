@@ -30,6 +30,7 @@
         "reduce_scatter": true,
         "reduce_bucket_size": 5e8,
         "allgather_bucket_size": 5e8,
+        "round_robin_gradients": true,
         "offload_optimizer": {
             "device": "none"
         },
