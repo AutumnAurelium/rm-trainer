@@ -107,7 +107,10 @@ if training_args.local_rank == 0:  # Only run on main process
 # Update trainer initialization
 trainer = ScaledRewardTrainer(
     model=model,
-    config=RewardConfig(max_length=768),
+    config=RewardConfig(
+        max_length=768,
+        output_dir="results"
+    ),
     args=training_args,
     processing_class=tokenizer,
     train_dataset=train_dataset
