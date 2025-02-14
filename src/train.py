@@ -28,7 +28,7 @@ for param in model.parameters():
 model.train()
 
 # Create the lazy dataset using IterableDataset
-train_dataset = Dataset.from_file("data/dclm_slop_results.parquet")
+train_dataset = Dataset.from_parquet("data/dclm_slop_results.parquet")
 
 # Update training arguments for cloud deployment
 training_args = RewardConfig(
