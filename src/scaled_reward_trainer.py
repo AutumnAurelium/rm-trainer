@@ -61,16 +61,20 @@ class ScaledRewardTrainer(Trainer):
 
     def _prepare_dataset(self, dataset):
         # Handle streaming datasets differently
+        from datasets import IterableDataset
+        
         if isinstance(dataset, IterableDataset):
             # Streaming datasets can't check column names upfront
             return dataset
-        else:
-            # Only validate column names for non-streaming datasets
+        elif hasattr(dataset, 'column_names'):
+            # Validate column names for in-memory datasets
             required_columns = {"chosen_input_ids", "rejected_input_ids", 
                               "chosen_attention_mask", "rejected_attention_mask"}
             if not required_columns.issubset(dataset.column_names):
                 raise ValueError(f"Dataset must contain {required_columns} columns")
             return dataset
+        else:
+            raise ValueError("Invalid dataset type - must be either Hugging Face Dataset or IterableDataset")
 
     def get_train_dataloader(self):
         train_dataset = self._prepare_dataset(self.train_dataset)
