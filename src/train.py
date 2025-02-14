@@ -2,7 +2,7 @@ import torch
 from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification
 import wandb
 import os
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from trl import RewardConfig
 
 from scaled_reward_trainer import ScaledRewardTrainer
@@ -28,7 +28,7 @@ for param in model.parameters():
 model.train()
 
 # Create the lazy dataset using IterableDataset
-train_dataset = Dataset.from_parquet("data/dclm_slop_results.parquet")
+train_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")
 
 # Update training arguments for cloud deployment
 training_args = RewardConfig(
