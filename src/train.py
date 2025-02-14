@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClass
 import wandb
 import os
 from datasets import Dataset, load_dataset
-from trl import RewardConfig, RewardTrainer
+from trl import RewardConfig
 
 from scaled_reward_trainer import ScaledRewardTrainer
 
@@ -35,11 +35,39 @@ for param in model.parameters():
 # Set the model to training mode
 model.train()
 
-# Create the lazy dataset using IterableDataset
-train_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
+# Update dataset preparation (note: requires preprocessed chosen/rejected columns)
+def tokenize_pair(examples):
+    # This assumes your raw data has "chosen" and "rejected" text fields
+    tokenized_chosen = tokenizer(
+        examples["chosen"], 
+        truncation=True,
+        max_length=512,
+        padding="max_length"
+    )
+    tokenized_rejected = tokenizer(
+        examples["rejected"],
+        truncation=True,
+        max_length=512,
+        padding="max_length"
+    )
+    return {
+        "chosen_input_ids": tokenized_chosen["input_ids"],
+        "chosen_attention_mask": tokenized_chosen["attention_mask"],
+        "rejected_input_ids": tokenized_rejected["input_ids"],
+        "rejected_attention_mask": tokenized_rejected["attention_mask"],
+        "margin": examples.get("margin", 1.0)  # Allow per-example margins
+    }
 
-# Update training arguments for cloud deployment
-training_args = RewardConfig(
+# Process dataset with pairs
+raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
+train_dataset = raw_dataset.map(
+    tokenize_pair,
+    batched=True,
+    remove_columns=raw_dataset.column_names
+)
+
+# Update training arguments to use standard HF Arguments
+training_args = TrainingArguments(
     output_dir="results",
     per_device_train_batch_size=8,
     gradient_accumulation_steps=4,
@@ -78,12 +106,12 @@ if training_args.local_rank == 0:  # Only run on main process
         }
     )
 
-# Update trainer with data collator
+# Update trainer initialization
 trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
+    tokenizer=tokenizer,
     train_dataset=train_dataset,
-    tokenizer=tokenizer
 )
 
 # Add error handling for cloud environment
