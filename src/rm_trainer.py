@@ -74,7 +74,7 @@ def train_reward_model():
         bf16=True,
         deepspeed="ds_config.json",
         gradient_checkpointing=True,
-        optim="adamw_8bit",
+        optim="adamw_bnb_8bit",
         logging_steps=10,
         save_steps=1000,
         report_to="none",
