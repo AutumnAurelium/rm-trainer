@@ -11,4 +11,8 @@ dependencies = [
     "transformers>=4.48.3",
     "trl>=0.14.0",
     "wandb>=0.19.6",
+    "deepspeed>=0.15.0",
+    "accelerate>=0.4.10",
+    "flash-attn>=2.5.1",
+    "liger-kernel>=0.1.0"
 ]

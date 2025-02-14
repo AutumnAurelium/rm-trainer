@@ -33,7 +33,8 @@ def train_reward_model():
     model = AutoModelForSequenceClassification.from_pretrained(
         "Qwen/Qwen2.5-7B",
         num_labels=1,
-        problem_type="regression"
+        problem_type="regression",
+        attn_implementation="flash_attention_2"
     )
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
     tokenizer.pad_token = tokenizer.eos_token
@@ -79,7 +80,8 @@ def train_reward_model():
         save_steps=1000,
         report_to="none",
         remove_unused_columns=False,
-        gradient_checkpointing_kwargs={"use_reentrant": False}
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+        use_liger_kernel=True
     )
 
     # Initialize custom trainer
