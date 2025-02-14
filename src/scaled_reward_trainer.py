@@ -26,7 +26,7 @@ class ScaledRewardTrainer(Trainer):
             eval_dataset=eval_dataset,
         )
         self.config = config
-        self.margin = config.margin if config else 1.0
+        self.margin = 1.0
         
         # Custom loss with label smoothing support
         self.loss_fct = nn.BCEWithLogitsLoss(reduction='mean')
