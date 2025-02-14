@@ -30,6 +30,9 @@ class ScaledRewardTrainer(Trainer):
         
         # Custom loss with label smoothing support
         self.loss_fct = nn.BCEWithLogitsLoss(reduction='mean')
+        
+        # Add custom data collator
+        self.data_collator = self._pad_collate
 
     def compute_loss(self, model, inputs, return_outputs=False):
         # Process chosen and rejected pairs
