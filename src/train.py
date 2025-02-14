@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, DataCollatorWithPadding
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification
 import wandb
 import os
 from datasets import Dataset, load_dataset
@@ -12,8 +12,10 @@ model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B")
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
+# Configure padding settings for the tokenizer
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "right"  # Ensure consistent padding direction
 
 # Initialize the model with device placement and dtype specifications
 model = Qwen2ForSequenceClassification.from_pretrained(
@@ -78,7 +80,7 @@ trainer = RewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    processing_class=DataCollatorWithPadding(tokenizer)
+    processing_class=tokenizer
 )
 
 # Add error handling for cloud environment
