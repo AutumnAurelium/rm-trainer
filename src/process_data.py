@@ -105,7 +105,7 @@ async def main(tokenizer: AutoTokenizer, max_tokens: int) -> Dataset:
     return Dataset.from_dict({
         "chosen": [x["chosen"] for x in examples],
         "rejected": [x["rejected"] for x in examples],
-        "score": [x["score"] for x in examples]
+        "margin": [x["margin"] for x in examples]
     })
     
 if __name__ == "__main__":
