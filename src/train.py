@@ -83,7 +83,7 @@ trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    processing_class=tokenizer
+    tokenizer=tokenizer
 )
 
 # Add error handling for cloud environment
