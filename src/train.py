@@ -21,7 +21,6 @@ if tokenizer.pad_token is None:
 model = AutoModelForSequenceClassification.from_pretrained(
     model_name,
     torch_dtype=torch.bfloat16,
-    device_map="cuda",
     num_labels=1
 )
 
