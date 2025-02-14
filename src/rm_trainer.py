@@ -35,7 +35,6 @@ def train_reward_model():
         num_labels=1,
         problem_type="regression",
         attn_implementation="flash_attention_2",
-        device_map="cuda"
     )
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
     tokenizer.pad_token = tokenizer.eos_token
