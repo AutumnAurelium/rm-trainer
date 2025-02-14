@@ -76,7 +76,8 @@ def train_reward_model():
         optim="adamw_8bit",
         logging_steps=10,
         save_steps=1000,
-        report_to="none"
+        report_to="none",
+        remove_unused_columns=False
     )
 
     # Initialize custom trainer
