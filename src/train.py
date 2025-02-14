@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification
 import wandb
 import os
 from datasets import Dataset, load_dataset
@@ -16,7 +16,7 @@ if tokenizer.pad_token is None:
     tokenizer.padding_side = "right"  # Ensure consistent padding direction
 
 # Initialize the model with device placement and dtype specifications
-model = Qwen2ForSequenceClassification.from_pretrained(
+model = AutoModelForSequenceClassification.from_pretrained(
     model_name,
     torch_dtype=torch.float16,  # Specify dtype since we're using fp16
     device_map="cuda",
@@ -60,7 +60,7 @@ training_args = RewardConfig(
     adam_beta1=0.9,
     adam_beta2=0.95,
     weight_decay=0.01,
-    deepspeed="ds_config.json",
+    # deepspeed="ds_config.json",
     ddp_find_unused_parameters=False
 )
 
