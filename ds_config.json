@@ -10,14 +10,13 @@
         "params": {
             "lr": "auto",
             "betas": "auto",
-            "eps": "auto",
-            "weight_decay": "auto"
+            "eps": "auto"
         }
     },
     "zero_optimization": {
-        "stage": 2,
+        "stage": 3,
         "offload_optimizer": {
-            "device": "none",
+            "device": "cpu",
             "pin_memory": true
         },
         "contiguous_gradients": true,
