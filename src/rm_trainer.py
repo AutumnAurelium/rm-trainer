@@ -70,12 +70,12 @@ def train_reward_model():
 
     training_args = TrainingArguments(
         output_dir="./results",
-        per_device_train_batch_size=6,
+        per_device_train_batch_size=4,
         num_train_epochs=4,
         learning_rate=1e-5,
         bf16=True,
         # deepspeed="ds_config.json",
-        gradient_checkpointing=True,
+        gradient_checkpointing=False,
         optim="adamw_bnb_8bit",
         logging_steps=10,
         save_steps=1000,
