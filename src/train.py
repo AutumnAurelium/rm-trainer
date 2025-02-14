@@ -19,7 +19,8 @@ if tokenizer.pad_token is None:
 model = Qwen2ForSequenceClassification.from_pretrained(
     model_name,
     torch_dtype=torch.float16,  # Specify dtype since we're using fp16
-    device_map="cuda"
+    device_map="cuda",
+    num_labels=1
 )
 
 model.config.pad_token_id = tokenizer.pad_token_id
