@@ -71,7 +71,7 @@ def train_reward_model():
     training_args = TrainingArguments(
         output_dir="./results",
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=2,
         num_train_epochs=4,
         learning_rate=1e-5,
         bf16=True,
