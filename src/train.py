@@ -1,9 +1,10 @@
 import torch
-from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, TrainingArguments, Qwen2ForSequenceClassification, AutoModelForSequenceClassification, AutoConfig
 import wandb
 import os
 from datasets import Dataset, load_dataset
 from trl import RewardConfig
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 
 from scaled_reward_trainer import ScaledRewardTrainer
 
@@ -17,16 +18,28 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"  # Ensure consistent padding direction
 
-# Initialize the model without device_map when using DeepSpeed
-model = AutoModelForSequenceClassification.from_pretrained(
+# Initialize model with meta device and load properly
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch
+
+# Load config first
+model_config = AutoConfig.from_pretrained("Qwen/Qwen2.5-7B", num_labels=1)
+
+# Create empty model on meta device
+with init_empty_weights():
+    model = AutoModelForSequenceClassification.from_config(model_config)
+
+# Load checkpoint and dispatch across devices
+model = load_checkpoint_and_dispatch(
+    model,
     "Qwen/Qwen2.5-7B",
-    low_cpu_mem_usage=True,
-    torch_dtype=torch.float16,
-    use_cache=False,
-    num_labels=1
+    device_map="auto",  # Let DeepSpeed handle device placement
+    no_split_module_classes=["Qwen2DecoderLayer"],  # Important for Qwen architecture
+    dtype=torch.float16
 )
 
+# Ensure model config matches tokenizer
 model.config.pad_token_id = tokenizer.pad_token_id
+model.config.use_cache = False
 
 # Ensure the model parameters are properly initialized
 for param in model.parameters():
