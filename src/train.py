@@ -75,7 +75,7 @@ trainer = RewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    tokenizer=tokenizer
+    processing_class=tokenizer
 )
 
 # Add error handling for cloud environment
