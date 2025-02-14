@@ -70,7 +70,7 @@ def train_reward_model():
 
     training_args = TrainingArguments(
         output_dir="./results",
-        per_device_train_batch_size=2,
+        per_device_train_batch_size=1,
         num_train_epochs=4,
         learning_rate=1e-5,
         bf16=True,
@@ -81,7 +81,7 @@ def train_reward_model():
         save_steps=1000,
         report_to="none",
         remove_unused_columns=False,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
+        # gradient_checkpointing_kwargs={"use_reentrant": False},
         use_liger_kernel=True,
         ddp_backend="nccl",
         ddp_find_unused_parameters=False
