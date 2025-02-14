@@ -90,7 +90,7 @@ training_args = TrainingArguments(
     adam_beta1=0.9,
     adam_beta2=0.95,
     weight_decay=0.01,
-    # deepspeed="ds_config.json",
+    deepspeed="ds_config.json",
     ddp_find_unused_parameters=False
 )
 
