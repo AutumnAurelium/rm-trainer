@@ -34,7 +34,7 @@ for param in model.parameters():
 
 model.train()
 
-raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet", streaming=True)["train"]
+raw_dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
 
 def tokenize_pair(examples):
     tokenized_chosen = tokenizer(
