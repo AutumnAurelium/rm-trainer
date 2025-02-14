@@ -68,7 +68,7 @@ def train_reward_model():
 
     training_args = TrainingArguments(
         output_dir="./results",
-        per_device_train_batch_size=4,
+        per_device_train_batch_size=3,
         num_train_epochs=3,
         learning_rate=1e-5,
         bf16=True,
@@ -80,7 +80,8 @@ def train_reward_model():
         report_to="none",
         remove_unused_columns=False,
         gradient_checkpointing_kwargs={"use_reentrant": False},
-        use_liger_kernel=True
+        use_liger_kernel=True,
+        
     )
 
     # Initialize custom trainer
@@ -88,7 +89,6 @@ def train_reward_model():
         model=model,
         args=training_args,
         train_dataset=tokenized_dataset,
-        num_proc=2
     )
 
     # Start training
