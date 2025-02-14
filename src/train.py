@@ -5,6 +5,8 @@ import os
 from datasets import Dataset, load_dataset
 from trl import RewardConfig, RewardTrainer
 
+from scaled_reward_trainer import ScaledRewardTrainer
+
 # Use environment variables for configuration
 model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B")
 
@@ -77,7 +79,7 @@ if training_args.local_rank == 0:  # Only run on main process
     )
 
 # Update trainer with data collator
-trainer = RewardTrainer(
+trainer = ScaledRewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,

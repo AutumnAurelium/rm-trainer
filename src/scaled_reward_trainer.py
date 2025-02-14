@@ -1,18 +1,111 @@
-from trl import RewardTrainer
+from typing import Optional, Dict, Union, Tuple
 import torch
+from torch import nn
+from transformers import Trainer, PreTrainedModel
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from transformers.trainer_utils import EvalPrediction
+from datasets import Dataset
+from trl import RewardConfig
 
-class ScaledRewardTrainer(RewardTrainer):
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        scores = inputs.pop("score")
-        rewards_chosen = model(input_ids=inputs["input_ids_chosen"], 
-                             attention_mask=inputs["attention_mask_chosen"])[0]
-        rewards_rejected = model(input_ids=inputs["input_ids_rejected"],
-                                attention_mask=inputs["attention_mask_rejected"])[0]
+class ScaledRewardTrainer(Trainer):
+    def __init__(
+        self,
+        model: Union[PreTrainedModel, nn.Module] = None,
+        config: Optional[RewardConfig] = None,
+        args: Optional[TrainingArguments] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+    ):
+        super().__init__(
+            model=model,
+            args=args,
+            tokenizer=tokenizer,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+        )
+        self.config = config
+        self.margin = config.margin if config else 1.0
         
-        print(inputs)
+        # Custom loss with label smoothing support
+        self.loss_fct = nn.BCEWithLogitsLoss(reduction='mean')
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        # Process chosen and rejected pairs
+        chosen_inputs = {
+            "input_ids": inputs["chosen_input_ids"],
+            "attention_mask": inputs["chosen_attention_mask"]
+        }
+        rejected_inputs = {
+            "input_ids": inputs["rejected_input_ids"],
+            "attention_mask": inputs["rejected_attention_mask"]
+        }
+
+        # Get scores for both sequences
+        chosen_scores = model(**chosen_inputs).logits
+        rejected_scores = model(**rejected_inputs).logits
         
-        # Calculate per-example loss and apply score weights
-        loss = -torch.nn.functional.logsigmoid(rewards_chosen - rewards_rejected)
-        weighted_loss = (loss * scores).mean()
+        # Calculate difference with margin
+        margin = inputs.get("margin", self.margin)
+        diff = chosen_scores - rejected_scores - margin
+        labels = torch.ones_like(chosen_scores)
         
-        return (weighted_loss, (rewards_chosen, rewards_rejected)) if return_outputs else weighted_loss
+        # Compute custom loss
+        loss = self.loss_fct(diff, labels)
+        
+        return (loss, (chosen_scores, rejected_scores)) if return_outputs else loss
+
+    def _prepare_dataset(self, dataset):
+        # Ensure dataset has required columns and proper formatting
+        required_columns = {"chosen_input_ids", "rejected_input_ids", 
+                           "chosen_attention_mask", "rejected_attention_mask"}
+        if not required_columns.issubset(dataset.column_names):
+            raise ValueError(f"Dataset must contain {required_columns} columns")
+        return dataset
+
+    def get_train_dataloader(self):
+        train_dataset = self._prepare_dataset(self.train_dataset)
+        return super().get_train_dataloader()
+
+    def get_eval_dataloader(self, eval_dataset=None):
+        eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
+        eval_dataset = self._prepare_dataset(eval_dataset)
+        return super().get_eval_dataloader(eval_dataset)
+
+    def compute_metrics(self, eval_pred: EvalPrediction):
+        metrics = {}
+        chosen_scores, rejected_scores = eval_pred.predictions
+        
+        # Calculate basic metrics
+        metrics["accuracy"] = (chosen_scores > rejected_scores).mean()
+        metrics["margin"] = (chosen_scores - rejected_scores).mean()
+        metrics["chosen_mean"] = chosen_scores.mean()
+        metrics["rejected_mean"] = rejected_scores.mean()
+        
+        return metrics
+
+    def _pad_collate(self, batch):
+        # Custom collation function for paired sequences
+        max_length = self.config.max_length if self.config else None
+        
+        def pad_features(features, key):
+            return self.tokenizer.pad(
+                {
+                    "input_ids": [x[key] for x in features],
+                    "attention_mask": [x[key.replace("input_ids", "attention_mask")] for x in features]
+                },
+                padding="max_length",
+                max_length=max_length,
+                return_tensors="pt",
+            )
+        
+        chosen = pad_features(batch, "chosen_input_ids")
+        rejected = pad_features(batch, "rejected_input_ids")
+        
+        return {
+            "chosen_input_ids": chosen["input_ids"],
+            "chosen_attention_mask": chosen["attention_mask"],
+            "rejected_input_ids": rejected["input_ids"],
+            "rejected_attention_mask": rejected["attention_mask"],
+            "margin": torch.tensor([x.get("margin", self.margin) for x in batch])
+        }
