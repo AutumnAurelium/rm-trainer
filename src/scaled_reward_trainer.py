@@ -34,7 +34,7 @@ class ScaledRewardTrainer(Trainer):
         # Add custom data collator
         self.data_collator = self._pad_collate
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         # Process chosen and rejected pairs
         chosen_inputs = {
             "input_ids": inputs["chosen_input_ids"],
