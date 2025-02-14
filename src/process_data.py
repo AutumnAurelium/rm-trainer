@@ -113,7 +113,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str)
     parser.add_argument("output_file", type=str)
-    parser.add_argument("--max_tokens", type=int, default=512)
+    parser.add_argument("--max_tokens", type=int, default=1024)
     parser.add_argument("--tokenizer", type=str, default="Qwen/Qwen2.5-7B")
     args = parser.parse_args()
 
