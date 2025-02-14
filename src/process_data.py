@@ -81,17 +81,18 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
     
     for a_chunk in sample_a_split:
         for b_chunk in sample_b_split:
+            margin = float(abs(score_scaled))
             if score > 0: # prefers sample_b
                 yield {
                     "chosen": prompt.format(sample_b_url, b_chunk),
                     "rejected": prompt.format(sample_a_url, a_chunk),
-                    "margin": abs(score)
+                    "margin": margin
                 }
             else: # prefers sample_a
                 yield {
                     "chosen": prompt.format(sample_a_url, a_chunk),
                     "rejected": prompt.format(sample_b_url, b_chunk),
-                    "margin": abs(score_scaled)
+                    "margin": margin
                 }
 
 async def main(tokenizer: AutoTokenizer, max_tokens: int) -> Dataset:

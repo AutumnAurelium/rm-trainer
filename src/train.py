@@ -5,8 +5,6 @@ import os
 from datasets import Dataset, load_dataset
 from trl import RewardConfig, RewardTrainer
 
-from scaled_reward_trainer import ScaledRewardTrainer
-
 # Use environment variables for configuration
 model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B")
 
