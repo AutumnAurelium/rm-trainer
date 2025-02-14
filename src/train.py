@@ -41,13 +41,13 @@ def tokenize_pair(examples):
     tokenized_chosen = tokenizer(
         examples["chosen"], 
         truncation=True,
-        max_length=2048,
+        max_length=768,
         padding="max_length"
     )
     tokenized_rejected = tokenizer(
         examples["rejected"],
         truncation=True,
-        max_length=2048,
+        max_length=768,
         padding="max_length"
     )
     return {
