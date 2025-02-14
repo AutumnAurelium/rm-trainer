@@ -17,6 +17,7 @@ class ScaledRewardTrainer(Trainer):
         processing_class: Optional[PreTrainedTokenizerBase] = None,
         train_dataset: Optional[Dataset] = None,
         eval_dataset: Optional[Dataset] = None,
+        use_liger_kernel: bool = False
     ):
         super().__init__(
             model=model,
@@ -24,6 +25,7 @@ class ScaledRewardTrainer(Trainer):
             processing_class=processing_class,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
+            use_liger_kernel=use_liger_kernel
         )
         self.config = config
         self.margin = 1.0
