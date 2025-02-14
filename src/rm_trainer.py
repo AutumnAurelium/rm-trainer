@@ -69,7 +69,7 @@ def train_reward_model():
     training_args = TrainingArguments(
         output_dir="./results",
         per_device_train_batch_size=3,
-        num_train_epochs=3,
+        num_train_epochs=4,
         learning_rate=1e-5,
         bf16=True,
         # deepspeed="ds_config.json",
