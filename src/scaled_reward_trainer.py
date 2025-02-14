@@ -9,6 +9,8 @@ class ScaledRewardTrainer(RewardTrainer):
         rewards_rejected = model(input_ids=inputs["input_ids_rejected"],
                                 attention_mask=inputs["attention_mask_rejected"])[0]
         
+        print(inputs)
+        
         # Calculate per-example loss and apply score weights
         loss = -torch.nn.functional.logsigmoid(rewards_chosen - rewards_rejected)
         weighted_loss = (loss * scores).mean()
