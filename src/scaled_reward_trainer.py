@@ -5,7 +5,7 @@ from transformers import Trainer, PreTrainedModel
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.trainer_utils import EvalPrediction
 from transformers.training_args import TrainingArguments
-from datasets import Dataset
+from datasets import Dataset, IterableDataset
 from trl import RewardConfig
 
 class ScaledRewardTrainer(Trainer):
@@ -60,12 +60,17 @@ class ScaledRewardTrainer(Trainer):
         return (loss, (chosen_scores, rejected_scores)) if return_outputs else loss
 
     def _prepare_dataset(self, dataset):
-        # Ensure dataset has required columns and proper formatting
-        required_columns = {"chosen_input_ids", "rejected_input_ids", 
-                           "chosen_attention_mask", "rejected_attention_mask"}
-        if not required_columns.issubset(dataset.column_names):
-            raise ValueError(f"Dataset must contain {required_columns} columns")
-        return dataset
+        # Handle streaming datasets differently
+        if isinstance(dataset, IterableDataset):
+            # Streaming datasets can't check column names upfront
+            return dataset
+        else:
+            # Only validate column names for non-streaming datasets
+            required_columns = {"chosen_input_ids", "rejected_input_ids", 
+                              "chosen_attention_mask", "rejected_attention_mask"}
+            if not required_columns.issubset(dataset.column_names):
+                raise ValueError(f"Dataset must contain {required_columns} columns")
+            return dataset
 
     def get_train_dataloader(self):
         train_dataset = self._prepare_dataset(self.train_dataset)
