@@ -27,7 +27,9 @@ def train_reward_model():
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
-    ]
+    ].shuffle(seed=42)
+    # Take approximately 50% of the data
+    dataset = dataset.select(range(len(dataset)//2))
 
     def tokenize_function(examples):
         tokenized_chosen = tokenizer(
