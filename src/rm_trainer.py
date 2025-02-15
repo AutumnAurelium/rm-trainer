@@ -150,7 +150,8 @@ def train_reward_model():
 
             if step % 1000 == 0 and step > 0:
                 accelerator.save_state(f"./results/checkpoint_step_{step}")
-
+                if accelerator.is_main_process:
+                    model.save_pretrained(f"./results/checkpoint_step_{step}")
 
 if __name__ == "__main__":
     train_reward_model()
