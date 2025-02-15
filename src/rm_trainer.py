@@ -87,7 +87,7 @@ def train_reward_model():
         model, optimizer, train_dataloader, val_dataloader
     )
 
-    num_epochs = 4
+    num_epochs = 3
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
 
