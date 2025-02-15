@@ -153,5 +153,35 @@ def train_reward_model():
                 if accelerator.is_main_process:
                     model.save_pretrained(f"./results/checkpoint_step_{step}")
 
+    if accelerator.is_main_process:
+        model.eval()
+        # validation loss
+        with torch.no_grad():
+            val_loss = 0
+            for batch in val_dataloader:
+                outputs_chosen = model(
+                    input_ids=batch["chosen_input_ids"],
+                    attention_mask=batch["chosen_attention_mask"]
+                )
+                outputs_rejected = model(
+                    input_ids=batch["rejected_input_ids"],
+                    attention_mask=batch["rejected_attention_mask"]
+                )
+                
+                rewards_chosen = outputs_chosen.logits
+                rewards_rejected = outputs_rejected.logits
+
+                difference = rewards_chosen - rewards_rejected
+                val_loss += -torch.nn.functional.logsigmoid(
+                    difference * batch["margin"]
+                ).mean()
+                
+            accelerator.print(f"Step {step}: Val Loss {val_loss.item() / len(val_dataloader)}")
+            
+            if accelerator.is_main_process:
+                wandb.log({"val_loss": val_loss.item() / len(val_dataloader)})
+        
+        model.save_pretrained("./results/final")
+
 if __name__ == "__main__":
     train_reward_model()
