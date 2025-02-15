@@ -97,22 +97,18 @@ def train_reward_model():
     for epoch in range(num_epochs):
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(model):
-                # Combined forward pass
-                combined_ids = torch.cat(
-                    [batch["chosen_input_ids"], batch["rejected_input_ids"]]
+                outputs_chosen = model(
+                    input_ids=batch["chosen_input_ids"],
+                    attention_mask=batch["chosen_attention_mask"]
                 )
-                combined_mask = torch.cat(
-                    [batch["chosen_attention_mask"], batch["rejected_attention_mask"]]
-                )
-
-                all_outputs = model(
-                    input_ids=combined_ids, attention_mask=combined_mask
+                outputs_rejected = model(
+                    input_ids=batch["rejected_input_ids"],
+                    attention_mask=batch["rejected_attention_mask"]
                 )
 
-                # Split outputs
-                batch_size = batch["chosen_input_ids"].shape[0]
-                rewards_chosen = all_outputs.logits[:batch_size]
-                rewards_rejected = all_outputs.logits[batch_size:]
+                # Get rewards
+                rewards_chosen = outputs_chosen.logits
+                rewards_rejected = outputs_rejected.logits
 
                 # Loss calculation (same as before)
                 difference = rewards_chosen - rewards_rejected
