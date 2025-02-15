@@ -76,7 +76,7 @@ def train_reward_model():
 
     optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
 
-    model.gradient_checkpointing_enable(use_reentrant=False)
+    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
     model, optimizer, train_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader
