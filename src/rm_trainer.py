@@ -1,7 +1,6 @@
 from transformers import (
     AutoTokenizer,
-    AutoModelForSequenceClassification,
-    get_scheduler,
+    AutoModelForSequenceClassification
 )
 from datasets import load_dataset
 from accelerate import Accelerator, DistributedDataParallelKwargs
