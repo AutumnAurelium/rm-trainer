@@ -71,7 +71,7 @@ def train_reward_model():
             },
         )
     
-    batch_size = 6 * accelerator.num_processes
+    batch_size = 4 * accelerator.num_processes
     train_dataloader = DataLoader(tokenized_dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
