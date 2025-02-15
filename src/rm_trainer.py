@@ -1,32 +1,10 @@
-from transformers import Trainer, TrainingArguments
-import torch
-from torch import nn
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, get_scheduler
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-class RMTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        # Split inputs into chosen and rejected
-        chosen_inputs = {
-            "input_ids": inputs["chosen_input_ids"],
-            "attention_mask": inputs["chosen_attention_mask"]
-        }
-        rejected_inputs = {
-            "input_ids": inputs["rejected_input_ids"],
-            "attention_mask": inputs["rejected_attention_mask"]
-        }
-        
-        # Get model outputs
-        chosen_outputs = model(**chosen_inputs)
-        rejected_outputs = model(**rejected_inputs)
-        
-        # Calculate pairwise loss with margin
-        rewards_chosen = chosen_outputs.logits
-        rewards_rejected = rejected_outputs.logits
-        difference = rewards_chosen - rewards_rejected
-        loss = -torch.nn.functional.logsigmoid(difference * inputs["margin"]).mean()
-        
-        return (loss, (chosen_outputs, rejected_outputs)) if return_outputs else loss
+from accelerate import Accelerator
+import torch
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+import bitsandbytes as bnb
 
 def train_reward_model():
     # Load model and tokenizer
@@ -67,35 +45,69 @@ def train_reward_model():
         }
 
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
+    train_dataloader = DataLoader(tokenized_dataset, batch_size=4, shuffle=True)
 
-    training_args = TrainingArguments(
-        output_dir="./results",
-        per_device_train_batch_size=4,
-        num_train_epochs=4,
-        learning_rate=1e-5,
-        bf16=True,
-        # deepspeed="ds_config.json",
-        gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": True},
-        optim="adamw_bnb_8bit",
-        logging_steps=10,
-        save_steps=1000,
-        report_to="none",
-        remove_unused_columns=False,
-        use_liger_kernel=True,
-        ddp_backend="nccl",
-        ddp_find_unused_parameters=False,
+    # Initialize Accelerator
+    accelerator = Accelerator(
+        gradient_accumulation_steps=1,
+        mixed_precision="bf16",
+        log_with="none"
     )
-
-    # Initialize custom trainer
-    trainer = RMTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=tokenized_dataset,
-    )
-
-    # Start training
-    trainer.train() 
     
+    # Setup optimizer
+    optimizer = bnb.optim.Adam8bit(
+        model.parameters(), 
+        lr=1e-5,
+        betas=(0.9, 0.95)
+    )
+    
+    # Prepare components
+    model, optimizer, train_dataloader = accelerator.prepare(
+        model, optimizer, train_dataloader
+    )
+    
+    # Training setup
+    num_epochs = 4
+    num_training_steps = num_epochs * len(train_dataloader)
+    progress_bar = tqdm(range(num_training_steps))
+    
+    # Enable gradient checkpointing
+    model.gradient_checkpointing_enable()
+    
+    # Training loop
+    model.train()
+    for epoch in range(num_epochs):
+        for step, batch in enumerate(train_dataloader):
+            with accelerator.accumulate(model):
+                # Forward passes
+                chosen_outputs = model(
+                    input_ids=batch["chosen_input_ids"],
+                    attention_mask=batch["chosen_attention_mask"]
+                )
+                rejected_outputs = model(
+                    input_ids=batch["rejected_input_ids"],
+                    attention_mask=batch["rejected_attention_mask"]
+                )
+                
+                # Loss calculation (same as before)
+                rewards_chosen = chosen_outputs.logits
+                rewards_rejected = rejected_outputs.logits
+                difference = rewards_chosen - rewards_rejected
+                loss = -torch.nn.functional.logsigmoid(difference * batch["margin"]).mean()
+                
+                # Backward pass
+                accelerator.backward(loss)
+                optimizer.step()
+                optimizer.zero_grad()
+                
+            # Logging and progress
+            if step % 10 == 0:
+                accelerator.print(f"Step {step}: Loss {loss.item()}")
+            progress_bar.update(1)
+            
+            # Save checkpoint
+            if step % 1000 == 0 and step > 0:
+                accelerator.save_state(f"./results/checkpoint_step_{step}")
+
 if __name__ == "__main__":
     train_reward_model()
