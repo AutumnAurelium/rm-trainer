@@ -29,7 +29,9 @@ def train_reward_model():
         "train"
     ].shuffle(seed=42)
     # Take approximately 50% of the data
-    dataset = dataset.select(range(len(dataset)//2))
+    split_dataset = dataset.train_test_split(test_size=0.1)
+    train_dataset = split_dataset["train"].select(range(len(split_dataset["train"])//2))
+    val_dataset = split_dataset["test"]
 
     def tokenize_function(examples):
         tokenized_chosen = tokenizer(
@@ -54,8 +56,10 @@ def train_reward_model():
             "margin": examples["margin"],
         }
 
-    tokenized_dataset = dataset.map(tokenize_function, batched=True)
-    tokenized_dataset.set_format(type="torch")
+    tokenized_train = train_dataset.map(tokenize_function, batched=True)
+    tokenized_val = val_dataset.map(tokenize_function, batched=True)
+    tokenized_train.set_format(type="torch")
+    tokenized_val.set_format(type="torch")
 
     accelerator = Accelerator(
         gradient_accumulation_steps=1,
@@ -74,14 +78,15 @@ def train_reward_model():
         )
     
     batch_size = 6 * accelerator.num_processes
-    train_dataloader = DataLoader(tokenized_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(tokenized_train, batch_size=batch_size, shuffle=True)
+    val_dataloader = DataLoader(tokenized_val, batch_size=batch_size)
 
     optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
 
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
-    model, optimizer, train_dataloader = accelerator.prepare(
-        model, optimizer, train_dataloader
+    model, optimizer, train_dataloader, val_dataloader = accelerator.prepare(
+        model, optimizer, train_dataloader, val_dataloader
     )
 
     num_epochs = 4
@@ -115,6 +120,33 @@ def train_reward_model():
 
             if step % 10 == 0:
                 accelerator.print(f"Step {step}: Loss {loss.item()}")
+            
+            if step % 100 == 0 and step > 0:
+                model.eval()
+                with torch.no_grad():
+                    for batch in val_dataloader:
+                        outputs_chosen = model(
+                            input_ids=batch["chosen_input_ids"],
+                            attention_mask=batch["chosen_attention_mask"]
+                        )
+                        outputs_rejected = model(
+                            input_ids=batch["rejected_input_ids"],
+                            attention_mask=batch["rejected_attention_mask"]
+                        )
+                        
+                        rewards_chosen = outputs_chosen.logits
+                        rewards_rejected = outputs_rejected.logits
+
+                        difference = rewards_chosen - rewards_rejected
+                        val_loss = -torch.nn.functional.logsigmoid(
+                            difference * batch["margin"]
+                        ).mean()
+                        
+                        accelerator.print(f"Step {step}: Val Loss {val_loss.item()}")
+                        
+                        if accelerator.is_main_process:
+                            wandb.log({"val_loss": val_loss.item()})
+                        
             progress_bar.update(1)
 
             if step % 1000 == 0 and step > 0:
