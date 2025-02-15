@@ -101,18 +101,17 @@ def train_reward_model():
                     input_ids=batch["chosen_input_ids"],
                     attention_mask=batch["chosen_attention_mask"]
                 )
-                # outputs_rejected = model(
-                #     input_ids=batch["rejected_input_ids"],
-                #     attention_mask=batch["rejected_attention_mask"]
-                # )
+                outputs_rejected = model(
+                    input_ids=batch["rejected_input_ids"],
+                    attention_mask=batch["rejected_attention_mask"]
+                )
 
                 # Get rewards
                 rewards_chosen = outputs_chosen.logits
-                # rewards_rejected = outputs_rejected.logits
+                rewards_rejected = outputs_rejected.logits
 
                 # Loss calculation (same as before)
-                # difference = rewards_chosen - rewards_rejected
-                difference = rewards_chosen
+                difference = rewards_chosen - rewards_rejected
                 loss = -torch.nn.functional.logsigmoid(
                     difference * batch["margin"]
                 ).mean()
