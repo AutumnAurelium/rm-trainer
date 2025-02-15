@@ -29,23 +29,26 @@ def train_reward_model():
             examples["chosen"],
             padding="max_length",
             truncation=True,
-            max_length=1280
+            max_length=1280,
+            return_tensors="pt"
         )
         tokenized_rejected = tokenizer(
             examples["rejected"],
             padding="max_length",
             truncation=True,
-            max_length=1280
+            max_length=1280,
+            return_tensors="pt"
         )
         return {
-            "chosen_input_ids": tokenized_chosen["input_ids"],
-            "chosen_attention_mask": tokenized_chosen["attention_mask"],
-            "rejected_input_ids": tokenized_rejected["input_ids"],
-            "rejected_attention_mask": tokenized_rejected["attention_mask"],
+            "chosen_input_ids": tokenized_chosen["input_ids"][0],
+            "chosen_attention_mask": tokenized_chosen["attention_mask"][0],
+            "rejected_input_ids": tokenized_rejected["input_ids"][0],
+            "rejected_attention_mask": tokenized_rejected["attention_mask"][0],
             "margin": examples["margin"]
         }
 
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
+    tokenized_dataset.set_format(type="torch")
     train_dataloader = DataLoader(tokenized_dataset, batch_size=4, shuffle=True)
 
     # Initialize Accelerator
