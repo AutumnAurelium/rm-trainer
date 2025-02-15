@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import bitsandbytes as bnb
+import wandb
 
 def train_reward_model():
     # Load model and tokenizer
@@ -51,7 +52,15 @@ def train_reward_model():
     accelerator = Accelerator(
         gradient_accumulation_steps=1,
         mixed_precision="bf16",
-        log_with="none"
+        log_with="wandb"
+    )
+    
+    wandb.init(
+        project="dclm-slop-results",
+        name="dclm-slop-results-1280",
+        config={
+            "model": "Qwen/Qwen2.5-7B",
+        }
     )
     
     # Setup optimizer
