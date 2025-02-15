@@ -76,7 +76,7 @@ def train_reward_model():
             },
         )
     
-    batch_size = 5 * accelerator.num_processes
+    batch_size = 1 * accelerator.num_processes
     train_dataloader = DataLoader(tokenized_train, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(tokenized_val, batch_size=batch_size)
 
