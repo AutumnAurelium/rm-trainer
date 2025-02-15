@@ -56,17 +56,14 @@ def train_reward_model():
 
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
     tokenized_dataset.set_format(type="torch")
-    train_dataloader = DataLoader(tokenized_dataset, batch_size=4, shuffle=True)
 
     # Initialize Accelerator
     accelerator = Accelerator(
         gradient_accumulation_steps=1,
         mixed_precision="bf16",
         log_with="wandb",
-        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)],
+        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=False)],
     )
-
-    batch_size = 4 * accelerator.num_processes
 
     if accelerator.is_main_process:
         wandb.init(
@@ -76,6 +73,9 @@ def train_reward_model():
                 "model": "Qwen/Qwen2.5-7B",
             },
         )
+    
+    batch_size = 4 * accelerator.num_processes
+    train_dataloader = DataLoader(tokenized_dataset, batch_size=batch_size, shuffle=True)
 
     # Setup optimizer
     optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
