@@ -13,7 +13,6 @@ import wandb
 
 
 def train_reward_model():
-    # Load model and tokenizer
     model = AutoModelForSequenceClassification.from_pretrained(
         "Qwen/Qwen2.5-7B",
         num_labels=1,
@@ -26,7 +25,6 @@ def train_reward_model():
     tokenizer.pad_token = tokenizer.eos_token
     model.config.pad_token_id = tokenizer.pad_token_id
 
-    # Load and preprocess dataset
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
     ]
@@ -57,7 +55,6 @@ def train_reward_model():
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
     tokenized_dataset.set_format(type="torch")
 
-    # Initialize Accelerator
     accelerator = Accelerator(
         gradient_accumulation_steps=1,
         mixed_precision="bf16",
@@ -77,22 +74,18 @@ def train_reward_model():
     batch_size = 4 * accelerator.num_processes
     train_dataloader = DataLoader(tokenized_dataset, batch_size=batch_size, shuffle=True)
 
-    # Setup optimizer
     optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
 
     model.gradient_checkpointing_enable()
 
-    # Prepare components
     model, optimizer, train_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader
     )
 
-    # Training setup
     num_epochs = 4
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
 
-    # Training loop
     model.train()
     for epoch in range(num_epochs):
         for step, batch in enumerate(train_dataloader):
@@ -106,27 +99,22 @@ def train_reward_model():
                     attention_mask=batch["rejected_attention_mask"]
                 )
 
-                # Get rewards
                 rewards_chosen = outputs_chosen.logits
                 rewards_rejected = outputs_rejected.logits
 
-                # Loss calculation (same as before)
                 difference = rewards_chosen - rewards_rejected
                 loss = -torch.nn.functional.logsigmoid(
                     difference * batch["margin"]
                 ).mean()
 
-                # Backward pass
                 accelerator.backward(loss)
                 optimizer.step()
                 optimizer.zero_grad()
 
-            # Logging and progress
             if step % 10 == 0:
                 accelerator.print(f"Step {step}: Loss {loss.item()}")
             progress_bar.update(1)
 
-            # Save checkpoint
             if step % 1000 == 0 and step > 0:
                 accelerator.save_state(f"./results/checkpoint_step_{step}")
 
