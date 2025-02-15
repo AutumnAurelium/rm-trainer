@@ -58,13 +58,14 @@ def train_reward_model():
         log_with="wandb"
     )
     
-    wandb.init(
-        project="dclm-slop-results",
-        name="dclm-slop-results-1280",
-        config={
-            "model": "Qwen/Qwen2.5-7B",
-        }
-    )
+    if accelerator.is_main_process:
+        wandb.init(
+            project="dclm-slop-results",
+            name="dclm-slop-results-1280",
+            config={
+                "model": "Qwen/Qwen2.5-7B",
+            }
+        )
     
     # Setup optimizer
     optimizer = bnb.optim.Adam8bit(
