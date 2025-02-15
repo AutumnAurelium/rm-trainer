@@ -4,7 +4,7 @@ from transformers import (
     get_scheduler,
 )
 from datasets import load_dataset
-from accelerate import Accelerator, DistributedDataParallelKwargs, DistributedSampler
+from accelerate import Accelerator, DistributedDataParallelKwargs
 import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -67,12 +67,6 @@ def train_reward_model():
     )
 
     batch_size = 4 * accelerator.num_processes
-    train_dataloader = DataLoader(
-        tokenized_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        sampler=DistributedSampler(tokenized_dataset),
-    )
 
     if accelerator.is_main_process:
         wandb.init(
@@ -89,8 +83,8 @@ def train_reward_model():
     model.gradient_checkpointing_enable()
 
     # Prepare components
-    model, optimizer = accelerator.prepare(
-        model, optimizer
+    model, optimizer, train_dataloader = accelerator.prepare(
+        model, optimizer, train_dataloader
     )
 
     # Training setup
