@@ -71,21 +71,20 @@ def train_reward_model():
     training_args = TrainingArguments(
         output_dir="./results",
         per_device_train_batch_size=4,
-        gradient_accumulation_steps=2,
         num_train_epochs=4,
         learning_rate=1e-5,
         bf16=True,
         # deepspeed="ds_config.json",
         gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
+        gradient_checkpointing_kwargs={"use_reentrant": True},
         optim="adamw_bnb_8bit",
         logging_steps=10,
         save_steps=1000,
         report_to="none",
         remove_unused_columns=False,
         use_liger_kernel=True,
-        # ddp_backend="nccl",
-        # ddp_find_unused_parameters=False,
+        ddp_backend="nccl",
+        ddp_find_unused_parameters=False,
     )
 
     # Initialize custom trainer
