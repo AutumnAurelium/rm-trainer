@@ -56,7 +56,7 @@ def train_reward_model():
     tokenized_dataset.set_format(type="torch")
 
     accelerator = Accelerator(
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=2,
         mixed_precision="bf16",
         log_with="wandb",
         kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=False)],
@@ -71,7 +71,7 @@ def train_reward_model():
             },
         )
     
-    batch_size = 4 * accelerator.num_processes
+    batch_size = 6 * accelerator.num_processes
     train_dataloader = DataLoader(tokenized_dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
