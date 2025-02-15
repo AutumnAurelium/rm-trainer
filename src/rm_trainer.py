@@ -27,11 +27,11 @@ def train_reward_model():
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
-    ].shuffle(seed=42)
-    # Take approximately 50% of the data
+    ]
+    # Shuffle after, to avoid contaminating validation with the same URLs.
     split_dataset = dataset.train_test_split(test_size=0.1)
-    train_dataset = split_dataset["train"].select(range(len(split_dataset["train"])//2))
-    val_dataset = split_dataset["test"]
+    train_dataset = split_dataset["train"].select(range(len(split_dataset["train"])//2)).shuffle(seed=42)
+    val_dataset = split_dataset["test"].shuffle(seed=42)
 
     def tokenize_function(examples):
         tokenized_chosen = tokenizer(
@@ -124,6 +124,7 @@ def train_reward_model():
             if step % 100 == 0 and step > 0:
                 model.eval()
                 with torch.no_grad():
+                    val_loss = 0
                     for batch in val_dataloader:
                         outputs_chosen = model(
                             input_ids=batch["chosen_input_ids"],
@@ -138,14 +139,14 @@ def train_reward_model():
                         rewards_rejected = outputs_rejected.logits
 
                         difference = rewards_chosen - rewards_rejected
-                        val_loss = -torch.nn.functional.logsigmoid(
+                        val_loss += -torch.nn.functional.logsigmoid(
                             difference * batch["margin"]
                         ).mean()
                         
-                        accelerator.print(f"Step {step}: Val Loss {val_loss.item()}")
-                        
-                        if accelerator.is_main_process:
-                            wandb.log({"val_loss": val_loss.item()})
+                    accelerator.print(f"Step {step}: Val Loss {val_loss.item() / len(val_dataloader)}")
+                    
+                    if accelerator.is_main_process:
+                        wandb.log({"val_loss": val_loss.item() / len(val_dataloader)})
                         
             progress_bar.update(1)
 
