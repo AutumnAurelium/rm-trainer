@@ -59,7 +59,7 @@ def train_reward_model():
         gradient_accumulation_steps=1,
         mixed_precision="bf16",
         log_with="wandb",
-        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)],
+        kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=False)],
     )
 
     if accelerator.is_main_process:
