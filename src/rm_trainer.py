@@ -40,10 +40,10 @@ def train_reward_model():
             return_tensors="pt"
         )
         return {
-            "chosen_input_ids": tokenized_chosen["input_ids"][0],
-            "chosen_attention_mask": tokenized_chosen["attention_mask"][0],
-            "rejected_input_ids": tokenized_rejected["input_ids"][0],
-            "rejected_attention_mask": tokenized_rejected["attention_mask"][0],
+            "chosen_input_ids": tokenized_chosen["input_ids"],
+            "chosen_attention_mask": tokenized_chosen["attention_mask"],
+            "rejected_input_ids": tokenized_rejected["input_ids"],
+            "rejected_attention_mask": tokenized_rejected["attention_mask"],
             "margin": examples["margin"]
         }
 
