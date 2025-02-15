@@ -28,7 +28,7 @@ def train_reward_model():
     ]
     # Shuffle after, to avoid contaminating validation with the same URLs.
     split_dataset = dataset.train_test_split(test_size=0.1)
-    train_dataset = split_dataset["train"].select(range(len(split_dataset["train"])//2)).shuffle(seed=42)
+    train_dataset = split_dataset["train"].select(range(len(split_dataset["train"])//8)).shuffle(seed=42)
     val_dataset = split_dataset["test"].shuffle(seed=42)
 
     def tokenize_function(examples):
@@ -87,7 +87,7 @@ def train_reward_model():
         model, optimizer, train_dataloader, val_dataloader
     )
 
-    num_epochs = 3
+    num_epochs = 2
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
 
