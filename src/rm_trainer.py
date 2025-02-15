@@ -70,6 +70,8 @@ def train_reward_model():
         betas=(0.9, 0.95)
     )
     
+    model.gradient_checkpointing_enable()
+    
     # Prepare components
     model, optimizer, train_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader
@@ -79,9 +81,6 @@ def train_reward_model():
     num_epochs = 4
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
-    
-    # Enable gradient checkpointing
-    model.gradient_checkpointing_enable()
     
     # Training loop
     model.train()
