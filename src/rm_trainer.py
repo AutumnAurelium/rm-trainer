@@ -102,7 +102,9 @@ def eval_validation(model, val_dataloader):
         
         # Log raw metrics, too - for fun!
         # If wandb gets mad at me I can just remove this.
-        wandb.log(wandb.Table(dataframe=metric_df))   
+        wandb.log({
+            "full_validation_results": wandb.Table(dataframe=metric_df)
+        })   
     model.train()
     
 def train_reward_model(hparams: dict):
