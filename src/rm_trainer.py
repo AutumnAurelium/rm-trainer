@@ -60,6 +60,8 @@ def calculate_loss(model, batch, return_metrics=False):
         difference - batch["margin"]
     ).mean()
     
+    print("Validation loss:", batch_loss.item())
+    
     if return_metrics:
         return batch_loss, {
             "loss": batch_loss.item(),
