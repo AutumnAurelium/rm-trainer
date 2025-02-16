@@ -98,18 +98,11 @@ def train_reward_model(hparams: dict):
     )
     
     def tokenize_function(examples):
-        for example in examples:
-            print(type(example))
-            import sys
-            sys.exit(0)
-        
         tokenized_chosen = tokenizer(
-            examples["chosen"],
-            return_tensors="pt"
+            examples["chosen"]
         )
         tokenized_rejected = tokenizer(
-            examples["rejected"],
-            return_tensors="pt"
+            examples["rejected"]
         )
         
         return {
