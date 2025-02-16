@@ -12,6 +12,7 @@ import bitsandbytes as bnb
 import wandb
 import pandas as pd
 import os
+
 def calculate_loss(model, batch, return_metrics=False):
     outputs_chosen = model(
         input_ids=batch["chosen_input_ids"],
@@ -100,14 +101,10 @@ def train_reward_model(hparams: dict):
     def tokenize_function(examples):
         tokenized_chosen = tokenizer(
             examples["chosen"],
-            truncation=True,
-            max_length=hparams["max_length"],
             return_tensors="pt"
         )
         tokenized_rejected = tokenizer(
             examples["rejected"],
-            truncation=True,
-            max_length=hparams["max_length"],
             return_tensors="pt"
         )
         return {
