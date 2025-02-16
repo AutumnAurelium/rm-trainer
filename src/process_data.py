@@ -77,8 +77,8 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
     
     # This is better than doing all combos, it avoids duplicates.
     for i in range(max(len(sample_a_split), len(sample_b_split))):
-        a_chunk = sample_a_split[i] if i < len(sample_a_split) else sample_a_split[len(sample_a_split)-1]
-        b_chunk = sample_b_split[i] if i < len(sample_b_split) else sample_b_split[len(sample_b_split)-1]
+        a_chunk = sample_a_split[i] if i < len(sample_a_split) else sample_a_split[i % len(sample_a_split)]
+        b_chunk = sample_b_split[i] if i < len(sample_b_split) else sample_b_split[i % len(sample_b_split)]
         
         margin = float(abs(score_scaled))
         if score > 0: # prefers sample_b
