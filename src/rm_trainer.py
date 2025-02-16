@@ -98,9 +98,10 @@ def train_reward_model(hparams: dict):
     )
     
     def tokenize_function(examples):
-        print(type(examples))
-        import sys
-        sys.exit(0)
+        for example in examples:
+            print(type(example))
+            import sys
+            sys.exit(0)
         
         tokenized_chosen = tokenizer(
             examples["chosen"],
