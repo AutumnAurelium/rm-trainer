@@ -1,6 +1,7 @@
 from transformers import (
     AutoTokenizer,
-    AutoModelForSequenceClassification
+    AutoModelForSequenceClassification,
+    DataCollatorWithPadding
 )
 from datasets import load_dataset
 from accelerate import Accelerator, DistributedDataParallelKwargs
@@ -9,55 +10,90 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import bitsandbytes as bnb
 import wandb
+import pandas as pd
 
+def calculate_loss(model, batch, return_metrics=False):
+    outputs_chosen = model(
+        input_ids=batch["chosen_input_ids"],
+        attention_mask=batch["chosen_attention_mask"]
+    )
+    outputs_rejected = model(
+        input_ids=batch["rejected_input_ids"],
+        attention_mask=batch["rejected_attention_mask"]
+    )
+    
+    rewards_chosen = outputs_chosen.logits
+    rewards_rejected = outputs_rejected.logits
 
-def train_reward_model():
+    difference = rewards_chosen - rewards_rejected
+    batch_loss = -torch.nn.functional.logsigmoid(
+        difference - batch["margin"]
+    ).mean()
+    
+    if return_metrics:
+        return batch_loss, {
+            "loss": batch_loss.item(),
+            "avg_reward_chosen": rewards_chosen.mean().item(),
+            "avg_reward_rejected": rewards_rejected.mean().item(),
+            "margin": batch["margin"].mean().item(),
+            "difference": difference.mean().item(),
+            "accuracy": (difference > batch["margin"]).float().mean().item(),
+            "chosen_reward_min": rewards_chosen.min().item(),
+            "chosen_reward_max": rewards_chosen.max().item(),
+            "chosen_reward_std": rewards_chosen.std().item(),
+            "rejected_reward_min": rewards_rejected.min().item(),
+            "rejected_reward_max": rewards_rejected.max().item(),
+            "rejected_reward_std": rewards_rejected.std().item()
+        }
+    else:
+        return batch_loss
+
+def eval_validation(model, val_dataloader):
+    with torch.no_grad():
+        val_metrics = []
+        
+        for batch in val_dataloader:
+            loss, metrics = calculate_loss(model, batch, return_metrics=True)
+            
+            metrics["loss"] = loss.item()
+
+            val_metrics.append(metrics)
+
+        # Average metrics over all batches
+        metric_df = pd.DataFrame(val_metrics)
+        wandb.log({
+            "val/" + k: v.mean() for k, v in metric_df.items()
+        })
+        
+        # Log raw metrics, too - for fun!
+        # If wandb gets mad at me I can just remove this.
+        wandb.log(wandb.Table(dataframe=metric_df))       
+    
+def train_reward_model(hparams: dict):
     model = AutoModelForSequenceClassification.from_pretrained(
-        "Qwen/Qwen2.5-7B",
+        hparams["model"],
         num_labels=1,
         problem_type="regression",
         attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16
     )
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
+    tokenizer = AutoTokenizer.from_pretrained(hparams["model"])
     tokenizer.pad_token = tokenizer.eos_token
     model.config.pad_token_id = tokenizer.pad_token_id
+    
+    data_collator = DataCollatorWithPadding(
+        tokenizer=tokenizer,
+        padding="longest",
+        return_tensors="pt",
+    )
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
     ].shuffle(seed=42)
     
-    split_dataset = dataset.train_test_split(test_size=0.1)
+    split_dataset = dataset.train_test_split(test_size=hparams["validation_size"])
     train_dataset = split_dataset["train"]
     val_dataset = split_dataset["test"]
-
-    def tokenize_function(examples):
-        tokenized_chosen = tokenizer(
-            examples["chosen"],
-            padding="max_length",
-            truncation=True,
-            max_length=1280,
-            return_tensors="pt",
-        )
-        tokenized_rejected = tokenizer(
-            examples["rejected"],
-            padding="max_length",
-            truncation=True,
-            max_length=1280,
-            return_tensors="pt",
-        )
-        return {
-            "chosen_input_ids": tokenized_chosen["input_ids"],
-            "chosen_attention_mask": tokenized_chosen["attention_mask"],
-            "rejected_input_ids": tokenized_rejected["input_ids"],
-            "rejected_attention_mask": tokenized_rejected["attention_mask"],
-            "margin": examples["margin"],
-        }
-
-    tokenized_train = train_dataset.map(tokenize_function, batched=True)
-    tokenized_val = val_dataset.map(tokenize_function, batched=True)
-    tokenized_train.set_format(type="torch")
-    tokenized_val.set_format(type="torch")
 
     accelerator = Accelerator(
         gradient_accumulation_steps=1,
@@ -67,19 +103,30 @@ def train_reward_model():
     )
 
     if accelerator.is_main_process:
+        model_name = hparams["model"].split("/")[-1]
         wandb.init(
             project="dclm-slop-results",
-            name="dclm-slop-results-1280",
-            config={
-                "model": "Qwen/Qwen2.5-7B",
-            },
+            name=f"dclm-slop-results-{model_name}",
+            config=hparams,
         )
     
-    batch_size = 2 * accelerator.num_processes
-    train_dataloader = DataLoader(tokenized_train, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(tokenized_val, batch_size=batch_size)
+    batch_size = hparams["batch_size"] * accelerator.num_processes
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=data_collator
+    )
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,collate_fn=data_collator
+    )
 
-    optimizer = bnb.optim.Adam8bit(model.parameters(), lr=1e-5, betas=(0.9, 0.95))
+    optimizer = bnb.optim.Adam8bit(
+        model.parameters(),
+        lr=hparams["learning_rate"],
+        betas=(hparams["adam_beta1"], hparams["adam_beta2"])
+    )
 
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
@@ -87,7 +134,7 @@ def train_reward_model():
         model, optimizer, train_dataloader, val_dataloader
     )
 
-    num_epochs = 2
+    num_epochs = hparams["num_epochs"]
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
 
@@ -95,115 +142,54 @@ def train_reward_model():
     for epoch in range(num_epochs):
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(model):
-                outputs_chosen = model(
-                    input_ids=batch["chosen_input_ids"],
-                    attention_mask=batch["chosen_attention_mask"]
-                )
-                outputs_rejected = model(
-                    input_ids=batch["rejected_input_ids"],
-                    attention_mask=batch["rejected_attention_mask"]
-                )
+                loss, metrics = calculate_loss(model, batch, return_metrics=True)
 
-                rewards_chosen = outputs_chosen.logits
-                rewards_rejected = outputs_rejected.logits
-
-                difference = rewards_chosen - rewards_rejected
-                loss = -torch.nn.functional.logsigmoid(
-                    difference - batch["margin"]
-                ).mean()
+                # add additional metrics
+                metrics["epoch"] = epoch
+                metrics["step"] = step
                 
                 if accelerator.is_main_process:
-                    wandb.log({
-                        "loss": loss.item(),
-                        "step": step,
-                        "epoch": epoch,
-                        "avg_reward_chosen": rewards_chosen.mean().item(),
-                        "avg_reward_rejected": rewards_rejected.mean().item(),
-                        "margin": batch["margin"].mean().item(),
-                        "difference": difference.mean().item(),
-                        "accuracy": (difference > batch["margin"]).float().mean().item(),
-                        "chosen_reward_min": rewards_chosen.min().item(),
-                        "chosen_reward_max": rewards_chosen.max().item(),
-                        "chosen_reward_std": rewards_chosen.std().item(),
-                        "rejected_reward_min": rewards_rejected.min().item(),
-                        "rejected_reward_max": rewards_rejected.max().item(),
-                        "rejected_reward_std": rewards_rejected.std().item()
-                    })
+                    wandb.log(metrics)
 
                 accelerator.backward(loss)
-                accelerator.clip_grad_norm_(model.parameters(), 0.01)
+                accelerator.clip_grad_norm_(model.parameters(), hparams["clip_grad_norm"])
                 optimizer.step()
                 optimizer.zero_grad()
 
-            if step % 10 == 0:
+            if step % hparams["log_interval"] == 0:
                 accelerator.print(f"Step {step}: Loss {loss.item()}")
                         
             progress_bar.update(1)
 
-            if step % 1000 == 0 and step > 0:
+            if step % hparams["validation_interval"] == 0 and step > 0:
+                # Eval on validation set and save checkpoint.
+                # TOOD: early stopping?
+                eval_validation(model, val_dataloader)
                 accelerator.save_state(f"./results/checkpoint_step_{step}")
                 if accelerator.is_main_process:
                     accelerator.save_model(model, f"./results/checkpoint_step_{step}")
 
+    # Model is finished, evaluate on validation set and save.
+    model.eval()
     if accelerator.is_main_process:
-        model.eval()
-        # validation loss
-        with torch.no_grad():
-            val_loss = 0
-            val_metrics = {
-                'difference': 0,
-                'margin': 0,
-                'accuracy': 0,
-                'chosen_reward_stats': [0, 0, 0],
-                'rejected_reward_stats': [0, 0, 0]
-            }
-            
-            for batch in val_dataloader:
-                outputs_chosen = model(
-                    input_ids=batch["chosen_input_ids"],
-                    attention_mask=batch["chosen_attention_mask"]
-                )
-                outputs_rejected = model(
-                    input_ids=batch["rejected_input_ids"],
-                    attention_mask=batch["rejected_attention_mask"]
-                )
-                
-                rewards_chosen = outputs_chosen.logits
-                rewards_rejected = outputs_rejected.logits
-
-                difference = rewards_chosen - rewards_rejected
-                batch_loss = -torch.nn.functional.logsigmoid(
-                    difference - batch["margin"]
-                ).mean()
-                val_loss += batch_loss.item()
-                
-                # Accumulate validation metrics
-                val_metrics['difference'] += difference.mean().item()
-                val_metrics['margin'] += batch["margin"].mean().item()
-                val_metrics['accuracy'] += (difference > batch["margin"]).float().mean().item()
-                val_metrics['chosen_reward_stats'][0] += rewards_chosen.min().item()
-                val_metrics['chosen_reward_stats'][1] += rewards_chosen.max().item()
-                val_metrics['chosen_reward_stats'][2] += rewards_chosen.std().item()
-                val_metrics['rejected_reward_stats'][0] += rewards_rejected.min().item()
-                val_metrics['rejected_reward_stats'][1] += rewards_rejected.max().item()
-                val_metrics['rejected_reward_stats'][2] += rewards_rejected.std().item()
-
-            # Average metrics over all batches
-            num_batches = len(val_dataloader)
-            wandb.log({
-                "val_loss": val_loss / num_batches,
-                "val_difference": val_metrics['difference'] / num_batches,
-                "val_margin": val_metrics['margin'] / num_batches,
-                "val_accuracy": val_metrics['accuracy'] / num_batches,
-                "val_chosen_reward_min": val_metrics['chosen_reward_stats'][0] / num_batches,
-                "val_chosen_reward_max": val_metrics['chosen_reward_stats'][1] / num_batches,
-                "val_chosen_reward_std": val_metrics['chosen_reward_stats'][2] / num_batches,
-                "val_rejected_reward_min": val_metrics['rejected_reward_stats'][0] / num_batches,
-                "val_rejected_reward_max": val_metrics['rejected_reward_stats'][1] / num_batches,
-                "val_rejected_reward_std": val_metrics['rejected_reward_stats'][2] / num_batches
-            })
+        eval_validation(model, val_dataloader)
         
         accelerator.save_model(model, "./results/final")
 
 if __name__ == "__main__":
-    train_reward_model()
+    hparams = {
+        "model": "Qwen/Qwen2.5-7B",
+        "num_epochs": 2,
+        "batch_size": 2,
+        "learning_rate": 1e-5,
+        "adam_beta1": 0.9,
+        "adam_beta2": 0.95,
+        "gradient_accumulation_steps": 1,
+        "mixed_precision": "bf16",
+        "validation_interval": 1000,
+        "validation_size": 0.1,
+        "clip_grad_norm": 0.01,
+        "log_interval": 10,
+        "max_length": 1280,
+    }
+    train_reward_model(hparams)
