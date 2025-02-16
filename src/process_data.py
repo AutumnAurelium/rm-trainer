@@ -79,21 +79,24 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
     
     score_scaled = (score - 4) / 3
     
-    for a_chunk in sample_a_split:
-        for b_chunk in sample_b_split:
-            margin = float(abs(score_scaled))
-            if score > 0: # prefers sample_b
-                yield {
-                    "chosen": prompt.format(sample_b_url, b_chunk),
-                    "rejected": prompt.format(sample_a_url, a_chunk),
-                    "margin": margin
-                }
-            else: # prefers sample_a
-                yield {
-                    "chosen": prompt.format(sample_a_url, a_chunk),
-                    "rejected": prompt.format(sample_b_url, b_chunk),
-                    "margin": margin
-                }
+    # This is better than doing all combos, it avoids duplicates.
+    for i in range(min(len(sample_a_split), len(sample_b_split))):
+        a_chunk = sample_a_split[i]
+        b_chunk = sample_b_split[i]
+        
+        margin = float(abs(score_scaled))
+        if score > 0: # prefers sample_b
+            yield {
+                "chosen": prompt.format(sample_b_url, b_chunk),
+                "rejected": prompt.format(sample_a_url, a_chunk),
+                "margin": margin
+            }
+        else: # prefers sample_a
+            yield {
+                "chosen": prompt.format(sample_a_url, a_chunk),
+                "rejected": prompt.format(sample_b_url, b_chunk),
+                "margin": margin
+            }
 
 async def main(tokenizer: AutoTokenizer, max_tokens: int) -> Dataset:
     examples = []
