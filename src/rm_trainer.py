@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 import bitsandbytes as bnb
 import wandb
 import pandas as pd
-
+import os
 def calculate_loss(model, batch, return_metrics=False):
     outputs_chosen = model(
         input_ids=batch["chosen_input_ids"],
@@ -49,14 +49,19 @@ def calculate_loss(model, batch, return_metrics=False):
         return batch_loss
 
 def eval_validation(model, val_dataloader):
+    """Evaluate the model on the validation set and log it to wandb.
+
+    Args:
+        model: The model to evaluate.
+        val_dataloader: The validation dataloader.
+    """
+    model.eval()
     with torch.no_grad():
         val_metrics = []
         
         for batch in val_dataloader:
             loss, metrics = calculate_loss(model, batch, return_metrics=True)
             
-            metrics["loss"] = loss.item()
-
             val_metrics.append(metrics)
 
         # Average metrics over all batches
@@ -67,9 +72,12 @@ def eval_validation(model, val_dataloader):
         
         # Log raw metrics, too - for fun!
         # If wandb gets mad at me I can just remove this.
-        wandb.log(wandb.Table(dataframe=metric_df))       
+        wandb.log(wandb.Table(dataframe=metric_df))   
+    model.train()
     
 def train_reward_model(hparams: dict):
+    os.makedirs("./results", exist_ok=True)
+    
     model = AutoModelForSequenceClassification.from_pretrained(
         hparams["model"],
         num_labels=1,
@@ -81,23 +89,46 @@ def train_reward_model(hparams: dict):
     tokenizer.pad_token = tokenizer.eos_token
     model.config.pad_token_id = tokenizer.pad_token_id
     
+    # Dataset preparation
+    
     data_collator = DataCollatorWithPadding(
         tokenizer=tokenizer,
         padding="longest",
-        return_tensors="pt",
+        return_tensors="pt"
     )
+    
+    def tokenize_function(examples):
+        tokenized_chosen = tokenizer(
+            examples["chosen"],
+            truncation=True,
+            max_length=hparams["max_length"],
+            return_tensors="pt"
+        )
+        tokenized_rejected = tokenizer(
+            examples["rejected"],
+            truncation=True,
+            max_length=hparams["max_length"],
+            return_tensors="pt"
+        )
+        return {
+            "chosen_input_ids": tokenized_chosen["input_ids"],
+            "chosen_attention_mask": tokenized_chosen["attention_mask"],
+            "rejected_input_ids": tokenized_rejected["input_ids"],
+            "rejected_attention_mask": tokenized_rejected["attention_mask"],
+            "margin": examples["margin"],
+        }
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
-    ].shuffle(seed=42)
+    ].shuffle(seed=42).map(tokenize_function, batched=True)
     
     split_dataset = dataset.train_test_split(test_size=hparams["validation_size"])
     train_dataset = split_dataset["train"]
     val_dataset = split_dataset["test"]
 
     accelerator = Accelerator(
-        gradient_accumulation_steps=1,
-        mixed_precision="bf16",
+        gradient_accumulation_steps=hparams["gradient_accumulation_steps"],
+        mixed_precision=hparams["mixed_precision"],
         log_with="wandb",
         kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=False)],
     )
@@ -105,8 +136,8 @@ def train_reward_model(hparams: dict):
     if accelerator.is_main_process:
         model_name = hparams["model"].split("/")[-1]
         wandb.init(
-            project="dclm-slop-results",
-            name=f"dclm-slop-results-{model_name}",
+            project="dclm-slop",
+            name=f"dclm-slop-{model_name}",
             config=hparams,
         )
     
@@ -170,7 +201,6 @@ def train_reward_model(hparams: dict):
                     accelerator.save_model(model, f"./results/checkpoint_step_{step}")
 
     # Model is finished, evaluate on validation set and save.
-    model.eval()
     if accelerator.is_main_process:
         eval_validation(model, val_dataloader)
         
@@ -181,10 +211,10 @@ if __name__ == "__main__":
         "model": "Qwen/Qwen2.5-7B",
         "num_epochs": 2,
         "batch_size": 2,
-        "learning_rate": 1e-5,
+        "gradient_accumulation_steps": 2,
+        "learning_rate": 1e-4,
         "adam_beta1": 0.9,
         "adam_beta2": 0.95,
-        "gradient_accumulation_steps": 1,
         "mixed_precision": "bf16",
         "validation_interval": 1000,
         "validation_size": 0.1,
