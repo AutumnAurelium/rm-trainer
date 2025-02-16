@@ -97,24 +97,24 @@ def train_reward_model(hparams: dict):
         return_tensors="pt"
     )
     
-    def tokenize_function(examples):
-        print(examples.keys())
-        tokenized_chosen = tokenizer(
-            examples["chosen"],
-            return_tensors="pt"
-        )
-        tokenized_rejected = tokenizer(
-            examples["rejected"],
-            return_tensors="pt"
-        )
-        
-        return {
-            "chosen_input_ids": tokenized_chosen["input_ids"],
-            "chosen_attention_mask": tokenized_chosen["attention_mask"],
-            "rejected_input_ids": tokenized_rejected["input_ids"],
-            "rejected_attention_mask": tokenized_rejected["attention_mask"],
-            "margin": examples["margin"],
-        }
+    def tokenize_function(batch):
+        for examples in batch:
+            tokenized_chosen = tokenizer(
+                examples["chosen"],
+                return_tensors="pt"
+            )
+            tokenized_rejected = tokenizer(
+                examples["rejected"],
+                return_tensors="pt"
+            )
+            
+            return {
+                "chosen_input_ids": tokenized_chosen["input_ids"],
+                "chosen_attention_mask": tokenized_chosen["attention_mask"],
+                "rejected_input_ids": tokenized_rejected["input_ids"],
+                "rejected_attention_mask": tokenized_rejected["attention_mask"],
+                "margin": examples["margin"],
+            }
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
