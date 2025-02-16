@@ -91,7 +91,6 @@ def train_reward_model(hparams: dict):
     model.config.pad_token_id = tokenizer.pad_token_id
     
     # Dataset preparation
-    
     data_collator = DataCollatorWithPadding(
         tokenizer=tokenizer,
         padding="longest",
@@ -99,6 +98,7 @@ def train_reward_model(hparams: dict):
     )
     
     def tokenize_function(examples):
+        print(examples)
         tokenized_chosen = tokenizer(
             examples["chosen"],
             return_tensors="pt"
@@ -107,6 +107,7 @@ def train_reward_model(hparams: dict):
             examples["rejected"],
             return_tensors="pt"
         )
+        
         return {
             "chosen_input_ids": tokenized_chosen["input_ids"],
             "chosen_attention_mask": tokenized_chosen["attention_mask"],
