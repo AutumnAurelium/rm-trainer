@@ -25,11 +25,11 @@ def train_reward_model():
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
         "train"
-    ]
-    # Shuffle after, to avoid contaminating validation with the same URLs.
+    ].shuffle(seed=42)
+    
     split_dataset = dataset.train_test_split(test_size=0.1)
-    train_dataset = split_dataset["train"].select(range(len(split_dataset["train"])//8)).shuffle(seed=42)
-    val_dataset = split_dataset["test"].shuffle(seed=42)
+    train_dataset = split_dataset["train"]
+    val_dataset = split_dataset["test"]
 
     def tokenize_function(examples):
         tokenized_chosen = tokenizer(
