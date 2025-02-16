@@ -98,7 +98,7 @@ def train_reward_model(hparams: dict):
     )
     
     def tokenize_function(examples):
-        print(examples)
+        print(examples.keys())
         tokenized_chosen = tokenizer(
             examples["chosen"],
             return_tensors="pt"
