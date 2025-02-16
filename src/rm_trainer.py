@@ -127,7 +127,8 @@ def train_reward_model(hparams: dict):
     data_collator = RewardDataCollator(
         tokenizer=tokenizer,
         padding="longest",
-        return_tensors="pt"
+        return_tensors="pt",
+        max_length=hparams["max_length"]
     )
     
     def tokenize_function(examples):
