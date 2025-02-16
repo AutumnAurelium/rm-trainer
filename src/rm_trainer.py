@@ -59,9 +59,7 @@ def calculate_loss(model, batch, return_metrics=False):
     batch_loss = -torch.nn.functional.logsigmoid(
         difference - batch["margin"]
     ).mean()
-    
-    print("Validation loss:", batch_loss.item())
-    
+        
     if return_metrics:
         return batch_loss, {
             "loss": batch_loss.item(),
@@ -101,6 +99,8 @@ def eval_validation(model, val_dataloader):
         wandb.log({
             "val/" + k: v.mean() for k, v in metric_df.items()
         })
+        
+        print("Validation loss:", metric_df["loss"].mean())
         
         # Log raw metrics, too - for fun!
         # If wandb gets mad at me I can just remove this.
