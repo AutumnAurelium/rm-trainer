@@ -13,6 +13,35 @@ import wandb
 import pandas as pd
 import os
 
+class RewardDataCollator(DataCollatorWithPadding):
+    def __call__(self, features):
+        processed_features = []
+        margins = []
+        
+        # Process each example to separate chosen/rejected
+        for feature in features:
+            processed_features.append({
+                "input_ids": feature["chosen_input_ids"],
+                "attention_mask": feature["chosen_attention_mask"]
+            })
+            processed_features.append({
+                "input_ids": feature["rejected_input_ids"],
+                "attention_mask": feature["rejected_attention_mask"]
+            })
+            margins.append(feature["margin"])
+        
+        # Batch pad all sequences together for efficiency
+        batch = super().__call__(processed_features)
+        
+        # Split the batch back into chosen/rejected pairs
+        return {
+            "chosen_input_ids": batch["input_ids"][::2],
+            "chosen_attention_mask": batch["attention_mask"][::2],
+            "rejected_input_ids": batch["input_ids"][1::2],
+            "rejected_attention_mask": batch["attention_mask"][1::2],
+            "margin": torch.tensor(margins, dtype=torch.float32)
+        }
+
 def calculate_loss(model, batch, return_metrics=False):
     outputs_chosen = model(
         input_ids=batch["chosen_input_ids"],
@@ -91,7 +120,7 @@ def train_reward_model(hparams: dict):
     model.config.pad_token_id = tokenizer.pad_token_id
     
     # Dataset preparation
-    data_collator = DataCollatorWithPadding(
+    data_collator = RewardDataCollator(
         tokenizer=tokenizer,
         padding="longest",
         return_tensors="pt"
