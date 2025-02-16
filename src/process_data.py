@@ -16,10 +16,6 @@ The URL of this webpage has also been provided.
 {}
 </text>
 </passage>
-<options>
-a. High-quality, human-written data
-b. Spam, SEO-optimized, or machine-generated content
-</options>
 """
 
 def split_sample(tokenizer: AutoTokenizer, sample, max_tokens: int, split_on: Literal["newline", "period", "space", "token"] = "newline"):
@@ -80,9 +76,9 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
     score_scaled = (score - 4) / 3
     
     # This is better than doing all combos, it avoids duplicates.
-    for i in range(min(len(sample_a_split), len(sample_b_split))):
-        a_chunk = sample_a_split[i]
-        b_chunk = sample_b_split[i]
+    for i in range(max(len(sample_a_split), len(sample_b_split))):
+        a_chunk = sample_a_split[i] if i < len(sample_a_split) else sample_a_split[len(sample_a_split)-1]
+        b_chunk = sample_b_split[i] if i < len(sample_b_split) else sample_b_split[len(sample_b_split)-1]
         
         margin = float(abs(score_scaled))
         if score > 0: # prefers sample_b
