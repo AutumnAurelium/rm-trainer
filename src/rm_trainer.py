@@ -109,42 +109,34 @@ def train_reward_model():
 
                 difference = rewards_chosen - rewards_rejected
                 loss = -torch.nn.functional.logsigmoid(
-                    difference * batch["margin"]
+                    difference - batch["margin"]
                 ).mean()
+                
+                if accelerator.is_main_process:
+                    wandb.log({
+                        "loss": loss.item(),
+                        "step": step,
+                        "epoch": epoch,
+                        "avg_reward_chosen": rewards_chosen.mean().item(),
+                        "avg_reward_rejected": rewards_rejected.mean().item(),
+                        "margin": batch["margin"].mean().item(),
+                        "difference": difference.mean().item(),
+                        "accuracy": (difference > batch["margin"]).float().mean().item(),
+                        "chosen_reward_min": rewards_chosen.min().item(),
+                        "chosen_reward_max": rewards_chosen.max().item(),
+                        "chosen_reward_std": rewards_chosen.std().item(),
+                        "rejected_reward_min": rewards_rejected.min().item(),
+                        "rejected_reward_max": rewards_rejected.max().item(),
+                        "rejected_reward_std": rewards_rejected.std().item()
+                    })
 
                 accelerator.backward(loss)
+                accelerator.clip_grad_norm_(model.parameters(), 0.01)
                 optimizer.step()
                 optimizer.zero_grad()
 
             if step % 10 == 0:
                 accelerator.print(f"Step {step}: Loss {loss.item()}")
-            
-            if step % 100 == 0 and step > 0:
-                model.eval()
-                with torch.no_grad():
-                    val_loss = 0
-                    for batch in val_dataloader:
-                        outputs_chosen = model(
-                            input_ids=batch["chosen_input_ids"],
-                            attention_mask=batch["chosen_attention_mask"]
-                        )
-                        outputs_rejected = model(
-                            input_ids=batch["rejected_input_ids"],
-                            attention_mask=batch["rejected_attention_mask"]
-                        )
-                        
-                        rewards_chosen = outputs_chosen.logits
-                        rewards_rejected = outputs_rejected.logits
-
-                        difference = rewards_chosen - rewards_rejected
-                        val_loss += -torch.nn.functional.logsigmoid(
-                            difference * batch["margin"]
-                        ).mean()
-                        
-                    accelerator.print(f"Step {step}: Val Loss {val_loss.item() / len(val_dataloader)}")
-                    
-                    if accelerator.is_main_process:
-                        wandb.log({"val_loss": val_loss.item() / len(val_dataloader)})
                         
             progress_bar.update(1)
 
@@ -158,6 +150,14 @@ def train_reward_model():
         # validation loss
         with torch.no_grad():
             val_loss = 0
+            val_metrics = {
+                'difference': 0,
+                'margin': 0,
+                'accuracy': 0,
+                'chosen_reward_stats': [0, 0, 0],
+                'rejected_reward_stats': [0, 0, 0]
+            }
+            
             for batch in val_dataloader:
                 outputs_chosen = model(
                     input_ids=batch["chosen_input_ids"],
@@ -172,14 +172,36 @@ def train_reward_model():
                 rewards_rejected = outputs_rejected.logits
 
                 difference = rewards_chosen - rewards_rejected
-                val_loss += -torch.nn.functional.logsigmoid(
-                    difference * batch["margin"]
+                batch_loss = -torch.nn.functional.logsigmoid(
+                    difference - batch["margin"]
                 ).mean()
+                val_loss += batch_loss.item()
                 
-            accelerator.print(f"Step {step}: Val Loss {val_loss.item() / len(val_dataloader)}")
-            
-            if accelerator.is_main_process:
-                wandb.log({"val_loss": val_loss.item() / len(val_dataloader)})
+                # Accumulate validation metrics
+                val_metrics['difference'] += difference.mean().item()
+                val_metrics['margin'] += batch["margin"].mean().item()
+                val_metrics['accuracy'] += (difference > batch["margin"]).float().mean().item()
+                val_metrics['chosen_reward_stats'][0] += rewards_chosen.min().item()
+                val_metrics['chosen_reward_stats'][1] += rewards_chosen.max().item()
+                val_metrics['chosen_reward_stats'][2] += rewards_chosen.std().item()
+                val_metrics['rejected_reward_stats'][0] += rewards_rejected.min().item()
+                val_metrics['rejected_reward_stats'][1] += rewards_rejected.max().item()
+                val_metrics['rejected_reward_stats'][2] += rewards_rejected.std().item()
+
+            # Average metrics over all batches
+            num_batches = len(val_dataloader)
+            wandb.log({
+                "val_loss": val_loss / num_batches,
+                "val_difference": val_metrics['difference'] / num_batches,
+                "val_margin": val_metrics['margin'] / num_batches,
+                "val_accuracy": val_metrics['accuracy'] / num_batches,
+                "val_chosen_reward_min": val_metrics['chosen_reward_stats'][0] / num_batches,
+                "val_chosen_reward_max": val_metrics['chosen_reward_stats'][1] / num_batches,
+                "val_chosen_reward_std": val_metrics['chosen_reward_stats'][2] / num_batches,
+                "val_rejected_reward_min": val_metrics['rejected_reward_stats'][0] / num_batches,
+                "val_rejected_reward_max": val_metrics['rejected_reward_stats'][1] / num_batches,
+                "val_rejected_reward_std": val_metrics['rejected_reward_stats'][2] / num_batches
+            })
         
         accelerator.save_model(model, "./results/final")
 
