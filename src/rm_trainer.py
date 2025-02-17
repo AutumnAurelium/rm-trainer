@@ -191,7 +191,8 @@ def train_reward_model(hparams: dict):
     optimizer = bnb.optim.Adam8bit(
         model.parameters(),
         lr=hparams["learning_rate"],
-        betas=(hparams["adam_beta1"], hparams["adam_beta2"])
+        betas=(hparams["adam_beta1"], hparams["adam_beta2"]),
+        weight_decay=hparams["adam_weight_decay"]
     )
 
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
@@ -247,13 +248,14 @@ if __name__ == "__main__":
         "num_epochs": 4,
         "batch_size": 2,
         "gradient_accumulation_steps": 4,
-        "learning_rate": 1e-6,
+        "learning_rate": 3e-6,
         "adam_beta1": 0.9,
-        "adam_beta2": 0.95,
+        "adam_beta2": 0.98,
+        "adam_weight_decay": 0.01,
         "mixed_precision": "bf16",
         "validation_interval": 1000,
-        "validation_size": 0.1,
-        "clip_grad_norm": 0.01,
+        "validation_size": 0.2,
+        "clip_grad_norm": 1.0,
         "log_interval": 10,
         "max_length": 768,
     }
