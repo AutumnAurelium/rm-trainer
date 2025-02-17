@@ -252,7 +252,7 @@ if __name__ == "__main__":
         "mixed_precision": "bf16",
         "validation_interval": 1000,
         "validation_size": 0.2,
-        "clip_grad_norm": 1.0,
+        "clip_grad_norm": 0.01,
         "log_interval": 10,
         "max_length": 768,
     }
