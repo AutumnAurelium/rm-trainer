@@ -64,10 +64,8 @@ def calculate_loss(model, batch, return_metrics=False):
     if return_metrics:
         return batch_loss, {
             "loss": batch_loss.item(),
-            "avg_chosen_positive": torch.sigmoid(outputs_chosen[:, 0]).mean().item(),
-            "avg_chosen_negative": torch.sigmoid(outputs_chosen[:, 0]).mean().item(),
-            "avg_rejected_positive": torch.sigmoid(outputs_rejected[:, 0]).mean().item(),
-            "avg_rejected_negative": torch.sigmoid(outputs_rejected[:, 0]).mean().item(),
+            "avg_chosen": torch.sigmoid(outputs_chosen[:, 0]).mean().item(),
+            "avg_rejected": torch.sigmoid(outputs_rejected[:, 0]).mean().item(),
             "avg_reward_chosen": rewards_chosen.mean().item(),
             "avg_reward_rejected": rewards_rejected.mean().item(),
             "margin": batch["margin"].mean().item(),
