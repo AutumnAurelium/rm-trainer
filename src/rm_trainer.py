@@ -43,14 +43,14 @@ class RewardDataCollator(DataCollatorWithPadding):
         }
 
 def calculate_loss(model, batch, return_metrics=False):
-    outputs_chosen = model(
+    outputs_chosen = torch.sigmoid(model(
         input_ids=batch["chosen_input_ids"],
         attention_mask=batch["chosen_attention_mask"]
-    )
-    outputs_rejected = model(
+    ))
+    outputs_rejected = torch.sigmoid(model(
         input_ids=batch["rejected_input_ids"],
         attention_mask=batch["rejected_attention_mask"]
-    )
+    ))
     
     rewards_chosen = outputs_chosen.logits
     rewards_rejected = outputs_rejected.logits
