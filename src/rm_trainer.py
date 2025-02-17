@@ -56,9 +56,11 @@ def calculate_loss(model, batch, return_metrics=False):
     rewards_rejected = torch.sigmoid(outputs_rejected[:, 0] / (outputs_rejected[:, 1] + 1e-10))
 
     difference = rewards_chosen - rewards_rejected
-    batch_loss = -torch.nn.functional.logsigmoid(
-        difference - batch["margin"]
-    ).mean()
+    difference_adjusted = difference - batch["margin"]
+    # batch_loss = -torch.nn.functional.logsigmoid(
+    #     difference_adjusted
+    # ).mean()
+    batch_loss = (batch["margin"] - difference_adjusted).mean()
         
     if return_metrics:
         return batch_loss, {
