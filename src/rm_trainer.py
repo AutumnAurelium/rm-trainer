@@ -52,8 +52,8 @@ def calculate_loss(model, batch, return_metrics=False):
         attention_mask=batch["rejected_attention_mask"]
     ).logits
     
-    rewards_chosen = torch.sigmoid(outputs_chosen[:, 0] / outputs_chosen[:, 1])
-    rewards_rejected = torch.sigmoid(outputs_rejected[:, 0] / outputs_rejected[:, 1])
+    rewards_chosen = torch.sigmoid(outputs_chosen[:, 0] / (outputs_chosen[:, 1] + 1e-10))
+    rewards_rejected = torch.sigmoid(outputs_rejected[:, 0] / (outputs_rejected[:, 1] + 1e-10))
 
     difference = rewards_chosen - rewards_rejected
     batch_loss = -torch.nn.functional.logsigmoid(
