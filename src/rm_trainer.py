@@ -46,14 +46,14 @@ def calculate_loss(model, batch, return_metrics=False):
     outputs_chosen = torch.sigmoid(model(
         input_ids=batch["chosen_input_ids"],
         attention_mask=batch["chosen_attention_mask"]
-    ))
+    ).logits)
     outputs_rejected = torch.sigmoid(model(
         input_ids=batch["rejected_input_ids"],
         attention_mask=batch["rejected_attention_mask"]
-    ))
+    ).logits)
     
-    rewards_chosen = outputs_chosen.logits
-    rewards_rejected = outputs_rejected.logits
+    rewards_chosen = outputs_chosen[0] / outputs_chosen[1]
+    rewards_rejected = outputs_rejected[0] / outputs_rejected[1]
 
     difference = rewards_chosen - rewards_rejected
     batch_loss = -torch.nn.functional.logsigmoid(
@@ -114,7 +114,7 @@ def train_reward_model(hparams: dict):
     
     model = AutoModelForSequenceClassification.from_pretrained(
         hparams["model"],
-        num_labels=1,
+        num_labels=2,
         problem_type="regression",
         attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16
