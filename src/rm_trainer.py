@@ -56,10 +56,11 @@ def calculate_loss(model, batch, return_metrics=False):
     rewards_rejected = outputs_rejected[:, 0] - outputs_rejected[:, 1]
 
     difference = rewards_chosen - rewards_rejected - batch["margin"]
-    batch_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-        difference,
-        torch.ones_like(difference)
-    ).mean()
+    # batch_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+    #     difference,
+    #     torch.ones_like(difference)
+    # ).mean()
+    batch_loss = -torch.nn.functional.logsigmoid(difference).mean()
         
     if return_metrics:
         return batch_loss, {
