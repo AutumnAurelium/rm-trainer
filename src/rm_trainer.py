@@ -239,7 +239,7 @@ if __name__ == "__main__":
     hparams = {
         "model": "Qwen/Qwen2.5-7B",
         "num_epochs": 4,
-        "batch_size": 1,
+        "batch_size": 2,
         "gradient_accumulation_steps": 4,
         "learning_rate": 1e-4,
         "adam_beta1": 0.9,
