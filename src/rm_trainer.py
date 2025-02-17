@@ -57,8 +57,8 @@ def calculate_loss(model, batch, return_metrics=False):
 
     difference = rewards_chosen - rewards_rejected
     batch_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-        difference,
-        torch.ones_like(difference)
+        difference - batch["margin"],
+        torch.zeros_like(difference)
     ).mean()
         
     if return_metrics:
