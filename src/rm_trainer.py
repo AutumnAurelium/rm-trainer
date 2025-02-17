@@ -249,6 +249,6 @@ if __name__ == "__main__":
         "validation_size": 0.1,
         "clip_grad_norm": 0.01,
         "log_interval": 10,
-        "max_length": 1280,
+        "max_length": 768,
     }
     train_reward_model(hparams)
