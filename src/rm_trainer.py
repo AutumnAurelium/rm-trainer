@@ -246,7 +246,7 @@ if __name__ == "__main__":
         "num_epochs": 4,
         "batch_size": 2,
         "gradient_accumulation_steps": 4,
-        "learning_rate": 1e-4,
+        "learning_rate": 1e-6,
         "adam_beta1": 0.9,
         "adam_beta2": 0.95,
         "mixed_precision": "bf16",
