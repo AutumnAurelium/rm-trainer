@@ -63,10 +63,10 @@ def calculate_loss(model, batch, return_metrics=False):
     if return_metrics:
         return batch_loss, {
             "loss": batch_loss.item(),
-            "avg_chosen_positive": rewards_chosen[:, 0].mean().item(),
-            "avg_chosen_negative": rewards_chosen[:, 1].mean().item(),
-            "avg_rejected_positive": rewards_rejected[:, 0].mean().item(),
-            "avg_rejected_negative": rewards_rejected[:, 1].mean().item(),
+            "avg_chosen_positive": outputs_chosen[:, 0].mean().item(),
+            "avg_chosen_negative": outputs_chosen[:, 1].mean().item(),
+            "avg_rejected_positive": outputs_rejected[:, 0].mean().item(),
+            "avg_rejected_negative": outputs_rejected[:, 1].mean().item(),
             "avg_reward_chosen": rewards_chosen.mean().item(),
             "avg_reward_rejected": rewards_rejected.mean().item(),
             "margin": batch["margin"].mean().item(),
