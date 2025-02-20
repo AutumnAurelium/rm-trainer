@@ -5,7 +5,7 @@ import json
 import argparse
 import asyncio
 from datasets import Dataset, Features, Value
-
+import pandas as pd
 prompt = """<task>
 Classify the following passage as either high-quality, human-written data or spam, SEO-optimized, or machine-generated content.
 The URL of this webpage has also been provided.
@@ -18,7 +18,7 @@ The URL of this webpage has also been provided.
 </passage>
 """
 
-def split_sample(tokenizer: AutoTokenizer, sample, max_tokens: int, split_on: Literal["newline", "period", "space", "token"] = "newline"):
+def split_sample(tokenizer: AutoTokenizer, sample: str, max_tokens: int, split_on: Literal["newline", "period", "space", "token"] = "newline"):
     if split_on not in ["newline", "period", "space", "token"]:
         raise ValueError(f"Invalid split_on value: {split_on}")
     
@@ -57,21 +57,20 @@ def split_sample(tokenizer: AutoTokenizer, sample, max_tokens: int, split_on: Li
     
     return [s.strip() for s in final_splits if s.strip()]
 
-async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
-    data = json.loads(line)
-    
-    sample_a, sample_b = data["sample"]
+async def process_data(
+    sample_a: str,
+    sample_b: str,
+    sample_a_url: str,
+    sample_b_url: str,
+    score: int,
+    tokenizer: AutoTokenizer,
+    max_tokens: int
+):
+    if score == 4: # annotator expressed no preference
+        return
     
     sample_a_split = split_sample(tokenizer, sample_a["text"], max_tokens)
     sample_b_split = split_sample(tokenizer, sample_b["text"], max_tokens)
-    
-    sample_a_url = sample_a["metadata"]["url"]
-    sample_b_url = sample_b["metadata"]["url"]
-    
-    score = data["feedback"]["slop_comparison"]
-    
-    if score == 4: # annotator expressed no preference
-        return
     
     score_scaled = (score - 4) / 3
     
@@ -80,32 +79,59 @@ async def process_data(line: str, tokenizer: AutoTokenizer, max_tokens: int):
         a_chunk = sample_a_split[i] if i < len(sample_a_split) else sample_a_split[i % len(sample_a_split)]
         b_chunk = sample_b_split[i] if i < len(sample_b_split) else sample_b_split[i % len(sample_b_split)]
         
-        margin = float(abs(score_scaled))
+        score = float(abs(score_scaled))
         if score > 0: # prefers sample_b
             yield {
                 "chosen": prompt.format(sample_b_url, b_chunk),
                 "rejected": prompt.format(sample_a_url, a_chunk),
-                "margin": margin
+                "score": score
             }
         else: # prefers sample_a
             yield {
                 "chosen": prompt.format(sample_a_url, a_chunk),
                 "rejected": prompt.format(sample_b_url, b_chunk),
-                "margin": margin
+                "score": score
             }
 
-async def main(tokenizer: AutoTokenizer, max_tokens: int) -> Dataset:
+async def process_data_annotator(line: str, tokenizer: AutoTokenizer, max_tokens: int):
+    data = json.loads(line)
+    
+    sample_a, sample_b = data["sample"]
+    
+    sample_a_url = sample_a["metadata"]["url"]
+    sample_b_url = sample_b["metadata"]["url"]
+    
+    score = data["feedback"]["slop_comparison"]
+    
+    async for x in process_data(sample_a, sample_b, sample_a_url, sample_b_url, score, tokenizer, max_tokens):
+        yield x
+
+async def main(input_file: str, tokenizer: AutoTokenizer, max_tokens: int, mode: Literal["annotator", "synth"]) -> Dataset:
     examples = []
 
-    with open(args.input_file, "r") as f:
+    with open(input_file, "r") as f:
         for line in f:
-            async for x in process_data(line, tokenizer, max_tokens):
-                examples.append(x)
+            if mode == "annotator":
+                async for x in process_data_annotator(line, tokenizer, max_tokens):
+                    examples.append(x)
+            else:
+                synth_df = pd.read_parquet(input_file)
+                for _, row in synth_df.iterrows():
+                    async for x in process_data(
+                        row["text_a"],
+                        row["text_b"],
+                        row["url_a"],
+                        row["url_b"],
+                        row["score"],
+                        tokenizer,
+                        max_tokens
+                    ):
+                        examples.append(x)
     
     return Dataset.from_dict({
         "chosen": [x["chosen"] for x in examples],
         "rejected": [x["rejected"] for x in examples],
-        "margin": [x["margin"] for x in examples]
+        "score": [x["score"] for x in examples]
     })
     
 if __name__ == "__main__":
@@ -114,6 +140,7 @@ if __name__ == "__main__":
     parser.add_argument("output_file", type=str)
     parser.add_argument("--max_tokens", type=int, default=512)
     parser.add_argument("--tokenizer", type=str, default="Qwen/Qwen2.5-7B")
+    parser.add_argument("--mode", type=str, default="annotator")
     args = parser.parse_args()
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)

@@ -16,7 +16,7 @@ import os
 class RewardDataCollator(DataCollatorWithPadding):
     def __call__(self, features):
         processed_features = []
-        margins = []
+        scores = []
         
         # Process each example to separate chosen/rejected
         for feature in features:
@@ -28,7 +28,7 @@ class RewardDataCollator(DataCollatorWithPadding):
                 "input_ids": feature["rejected_input_ids"],
                 "attention_mask": feature["rejected_attention_mask"]
             })
-            margins.append(feature["margin"])
+            scores.append(feature["score"])
         
         # Batch pad all sequences together for efficiency
         batch = super().__call__(processed_features)
@@ -39,7 +39,7 @@ class RewardDataCollator(DataCollatorWithPadding):
             "chosen_attention_mask": batch["attention_mask"][::2],
             "rejected_input_ids": batch["input_ids"][1::2],
             "rejected_attention_mask": batch["attention_mask"][1::2],
-            "margin": torch.tensor(margins, dtype=torch.float32)
+            "score": torch.tensor(scores, dtype=torch.float32)
         }
 
 def calculate_loss(model, batch, return_metrics=False):
@@ -58,7 +58,7 @@ def calculate_loss(model, batch, return_metrics=False):
     difference = rewards_chosen - rewards_rejected
     batch_loss = torch.nn.functional.binary_cross_entropy_with_logits(
         difference,
-        torch.ones_like(difference) * batch["margin"]
+        torch.ones_like(difference) * batch["score"]
     ).mean()
         
     if return_metrics:
@@ -68,9 +68,9 @@ def calculate_loss(model, batch, return_metrics=False):
             "avg_rejected": torch.sigmoid(outputs_rejected[:, 0]).mean().item(),
             "avg_reward_chosen": rewards_chosen.mean().item(),
             "avg_reward_rejected": rewards_rejected.mean().item(),
-            "margin": batch["margin"].mean().item(),
+            "score": batch["score"].mean().item(),
             "difference": difference.mean().item(),
-            "accuracy": (difference > batch["margin"]).float().mean().item(),
+            "accuracy": (difference > batch["score"]).float().mean().item(),
             "chosen_reward_min": rewards_chosen.min().item(),
             "chosen_reward_max": rewards_chosen.max().item(),
             "chosen_reward_std": rewards_chosen.std().item(),
@@ -147,7 +147,7 @@ def train_reward_model(hparams: dict):
             "chosen_attention_mask": tokenized_chosen["attention_mask"],
             "rejected_input_ids": tokenized_rejected["input_ids"],
             "rejected_attention_mask": tokenized_rejected["attention_mask"],
-            "margin": examples["margin"],
+            "score": examples["score"],
         }
 
     dataset = load_dataset("parquet", data_files="data/dclm_slop_results.parquet")[
