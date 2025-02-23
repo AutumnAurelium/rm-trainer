@@ -15,6 +15,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str)
     parser.add_argument("output_file", type=str)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--order-by-length", action="store_true")
     args = parser.parse_args()
     
     dataset = {
@@ -22,6 +24,8 @@ if __name__ == "__main__":
         "sample_b": [],
         "score": []
     }
+    
+    random.seed(args.seed)
 
     df = pd.read_parquet(args.input_file)
     for _, row in df.iterrows():
@@ -37,6 +41,11 @@ if __name__ == "__main__":
             dataset["sample_a"].append(format_convo(context + [response_a]))
             dataset["sample_b"].append(format_convo(context + [response_b]))
         dataset["score"].append(score)
+    
+    df = pd.DataFrame(dataset)
+    # sort by length to ease the model into the super long samples
+    if args.order_by_length:
+        df = df.sort_values(by="sample_a", key=lambda x: x.str.len())
         
-    pd.DataFrame(dataset).to_parquet(args.output_file)
+    df.to_parquet(args.output_file)
         
