@@ -21,12 +21,12 @@ class RewardDataCollator(DataCollatorWithPadding):
         # Process each example to separate chosen/rejected
         for feature in features:
             processed_features.append({
-                "input_ids": feature["chosen_input_ids"],
-                "attention_mask": feature["chosen_attention_mask"]
+                "input_ids": feature["sample_a_input_ids"],
+                "attention_mask": feature["sample_a_attention_mask"]
             })
             processed_features.append({
-                "input_ids": feature["rejected_input_ids"],
-                "attention_mask": feature["rejected_attention_mask"]
+                "input_ids": feature["sample_b_input_ids"],
+                "attention_mask": feature["sample_b_attention_mask"]
             })
             scores.append(feature["score"])
         
@@ -35,48 +35,39 @@ class RewardDataCollator(DataCollatorWithPadding):
         
         # Split the batch back into chosen/rejected pairs
         return {
-            "chosen_input_ids": batch["input_ids"][::2],
-            "chosen_attention_mask": batch["attention_mask"][::2],
-            "rejected_input_ids": batch["input_ids"][1::2],
-            "rejected_attention_mask": batch["attention_mask"][1::2],
+            "sample_a_input_ids": batch["input_ids"][::2],
+            "sample_a_attention_mask": batch["attention_mask"][::2],
+            "sample_b_input_ids": batch["input_ids"][1::2],
+            "sample_b_attention_mask": batch["attention_mask"][1::2],
             "score": torch.tensor(scores, dtype=torch.float32)
         }
 
 def calculate_loss(model, batch, return_metrics=False):
-    outputs_chosen = model(
-        input_ids=batch["chosen_input_ids"],
-        attention_mask=batch["chosen_attention_mask"]
+    outputs_a = model(
+        input_ids=batch["sample_a_input_ids"],
+        attention_mask=batch["sample_a_attention_mask"]
     ).logits
-    outputs_rejected = model(
-        input_ids=batch["rejected_input_ids"],
-        attention_mask=batch["rejected_attention_mask"]
+    outputs_b = model(
+        input_ids=batch["sample_b_input_ids"],
+        attention_mask=batch["sample_b_attention_mask"]
     ).logits
     
-    rewards_chosen = outputs_chosen[:, 0]
-    rewards_rejected = outputs_rejected[:, 0]
+    rewards_a = outputs_a[:, 0]
+    rewards_b = outputs_b[:, 0]
+    
+    targets = (batch["score"] - 1.0) / 6.0
+    
+    # this is equivalent to bradley-terry probability
+    probs = torch.sigmoid(rewards_a - rewards_b)
 
-    difference = rewards_chosen - rewards_rejected
     batch_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-        difference,
-        torch.ones_like(difference) * batch["score"]
+        probs,
+        targets
     ).mean()
-        
+    
     if return_metrics:
         return batch_loss, {
-            "loss": batch_loss.item(),
-            "avg_chosen": torch.sigmoid(outputs_chosen[:, 0]).mean().item(),
-            "avg_rejected": torch.sigmoid(outputs_rejected[:, 0]).mean().item(),
-            "avg_reward_chosen": rewards_chosen.mean().item(),
-            "avg_reward_rejected": rewards_rejected.mean().item(),
-            "score": batch["score"].mean().item(),
-            "difference": difference.mean().item(),
-            "accuracy": (difference > batch["score"]).float().mean().item(),
-            "chosen_reward_min": rewards_chosen.min().item(),
-            "chosen_reward_max": rewards_chosen.max().item(),
-            "chosen_reward_std": rewards_chosen.std().item(),
-            "rejected_reward_min": rewards_rejected.min().item(),
-            "rejected_reward_max": rewards_rejected.max().item(),
-            "rejected_reward_std": rewards_rejected.std().item()
+            "loss": batch_loss.item()
         }
     else:
         return batch_loss

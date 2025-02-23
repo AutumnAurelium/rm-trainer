@@ -6,6 +6,9 @@ import argparse
 import asyncio
 from datasets import Dataset, Features, Value
 import pandas as pd
+import random
+
+
 prompt = """<task>
 Classify the following passage as either high-quality, human-written data or spam, SEO-optimized, or machine-generated content.
 The URL of this webpage has also been provided.
@@ -72,24 +75,21 @@ async def process_data(
     sample_a_split = split_sample(tokenizer, sample_a["text"], max_tokens)
     sample_b_split = split_sample(tokenizer, sample_b["text"], max_tokens)
     
-    score_scaled = (score - 4) / 3
-    
     # This is better than doing all combos, it avoids duplicates.
     for i in range(max(len(sample_a_split), len(sample_b_split))):
         a_chunk = sample_a_split[i] if i < len(sample_a_split) else sample_a_split[i % len(sample_a_split)]
         b_chunk = sample_b_split[i] if i < len(sample_b_split) else sample_b_split[i % len(sample_b_split)]
         
-        score = float(abs(score_scaled))
-        if score > 0: # prefers sample_b
+        if random.random() < 0.5: # randomly select which sample is a vs b to avoid bias
             yield {
-                "chosen": prompt.format(sample_b_url, b_chunk),
-                "rejected": prompt.format(sample_a_url, a_chunk),
-                "score": score
+                "sample_a": prompt.format(sample_b_url, b_chunk),
+                "sample_b": prompt.format(sample_a_url, a_chunk),
+                "score": 7 - score
             }
         else: # prefers sample_a
             yield {
-                "chosen": prompt.format(sample_a_url, a_chunk),
-                "rejected": prompt.format(sample_b_url, b_chunk),
+                "sample_a": prompt.format(sample_a_url, a_chunk),
+                "sample_b": prompt.format(sample_b_url, b_chunk),
                 "score": score
             }
 

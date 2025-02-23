@@ -1,6 +1,8 @@
 import pandas as pd
 import argparse
 import json
+import random
+
 def format_convo(convo: list[dict]) -> str:
     formatted = ""
     for msg in convo:
@@ -16,8 +18,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     dataset = {
-        "chosen": [],
-        "rejected": [],
+        "sample_a": [],
+        "sample_b": [],
         "score": []
     }
 
@@ -28,13 +30,13 @@ if __name__ == "__main__":
         response_b = json.loads(row["response_b"])
         score = row["score"]
         
-        if score > 0:
-            dataset["chosen"].append(format_convo(context + [response_b]))
-            dataset["rejected"].append(format_convo(context + [response_a]))
+        if random.random() < 0.5: # avoid bias
+            dataset["sample_a"].append(format_convo(context + [response_b]))
+            dataset["sample_b"].append(format_convo(context + [response_a]))
         else:
-            dataset["chosen"].append(format_convo(context + [response_a]))
-            dataset["rejected"].append(format_convo(context + [response_b]))
-        dataset["score"].append(abs(score))
+            dataset["sample_a"].append(format_convo(context + [response_a]))
+            dataset["sample_b"].append(format_convo(context + [response_b]))
+        dataset["score"].append(score)
         
     pd.DataFrame(dataset).to_parquet(args.output_file)
         
