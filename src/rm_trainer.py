@@ -16,11 +16,12 @@ import os
 
 
 class RewardDataCollator(DataCollatorWithPadding):
+    # This is kind of a hack to get the stock HF DataCollator to work with our pairwise dataset.
     def __call__(self, features):
         processed_features = []
         scores = []
 
-        # Process each example to separate chosen/rejected
+        # Process each example to separate a/b
         for feature in features:
             processed_features.append(
                 {
@@ -36,10 +37,10 @@ class RewardDataCollator(DataCollatorWithPadding):
             )
             scores.append(feature["score"])
 
-        # Batch pad all sequences together for efficiency
+        # Batch pad all sequences
         batch = super().__call__(processed_features)
 
-        # Split the batch back into chosen/rejected pairs
+        # Split the batch back into a/b pairs
         return {
             "sample_a_input_ids": batch["input_ids"][::2],
             "sample_a_attention_mask": batch["attention_mask"][::2],
