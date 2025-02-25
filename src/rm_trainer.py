@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import bitsandbytes as bnb
+from torch.optim.lr_scheduler import get_scheduler
 import wandb
 import pandas as pd
 import os
@@ -66,12 +67,17 @@ def calculate_loss(model, batch, return_metrics=False):
     # this is equivalent to bradley-terry probability
     probs = torch.sigmoid(rewards_a - rewards_b)
 
-    batch_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+    batch_loss = torch.nn.functional.binary_cross_entropy(
         probs, targets
     ).mean()
 
     if return_metrics:
-        return batch_loss, {"loss": batch_loss.item()}
+        return batch_loss, {
+            "loss": batch_loss.item(),
+            "accuracy": (probs > 0.5).float().mean().item(),
+            "mean_rewards_a": rewards_a.mean().item(),
+            "mean_rewards_b": rewards_b.mean().item(),
+        }
     else:
         return batch_loss
 
@@ -102,9 +108,14 @@ def eval_validation(model, val_dataloader):
         # If wandb gets mad at me I can just remove this.
         wandb.log({"full_validation_results": wandb.Table(dataframe=metric_df)})
     model.train()
-
+    
+    return metric_df["loss"].mean()
 
 def train_reward_model(hparams: dict):
+    seed = hparams.get("seed", 42)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    
     os.makedirs("./results", exist_ok=True)
 
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -127,14 +138,14 @@ def train_reward_model(hparams: dict):
     )
 
     def tokenize_function(examples):
-        tokenized_chosen = tokenizer(examples["chosen"])
-        tokenized_rejected = tokenizer(examples["rejected"])
+        tokenized_sample_a = tokenizer(examples["sample_a"])
+        tokenized_sample_b = tokenizer(examples["sample_b"])
 
         return {
-            "chosen_input_ids": tokenized_chosen["input_ids"],
-            "chosen_attention_mask": tokenized_chosen["attention_mask"],
-            "rejected_input_ids": tokenized_rejected["input_ids"],
-            "rejected_attention_mask": tokenized_rejected["attention_mask"],
+            "sample_a_input_ids": tokenized_sample_a["input_ids"],
+            "sample_a_attention_mask": tokenized_sample_a["attention_mask"],
+            "sample_b_input_ids": tokenized_sample_b["input_ids"],
+            "sample_b_attention_mask": tokenized_sample_b["attention_mask"],
             "score": examples["score"],
         }
 
@@ -177,7 +188,14 @@ def train_reward_model(hparams: dict):
         betas=(hparams["adam_beta1"], hparams["adam_beta2"]),
         weight_decay=hparams["adam_weight_decay"],
     )
-
+    
+    lr_scheduler = get_scheduler(
+        name="linear",
+        optimizer=optimizer,
+        num_warmup_steps=hparams["num_warmup_steps"],
+        num_training_steps=len(train_dataloader) * hparams["num_epochs"],
+    )
+   
     model.gradient_checkpointing_enable(
         gradient_checkpointing_kwargs={"use_reentrant": False}
     )
@@ -189,6 +207,10 @@ def train_reward_model(hparams: dict):
     num_epochs = hparams["num_epochs"]
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
+
+    best_val_loss = float('inf')
+    patience = hparams.get("patience", 3)
+    patience_counter = 0
 
     model.train()
     for epoch in range(num_epochs):
@@ -208,6 +230,7 @@ def train_reward_model(hparams: dict):
                     model.parameters(), hparams["clip_grad_norm"]
                 )
                 optimizer.step()
+                lr_scheduler.step()
                 optimizer.zero_grad()
 
             if step % hparams["log_interval"] == 0:
@@ -216,9 +239,22 @@ def train_reward_model(hparams: dict):
             progress_bar.update(1)
 
             if step % hparams["validation_interval"] == 0 and step > 0:
-                # Eval on validation set and save checkpoint.
-                # TOOD: early stopping?
-                eval_validation(model, val_dataloader)
+                # Eval on validation set and save checkpoint
+                val_loss = eval_validation(model, val_dataloader)
+                
+                # Early stopping
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                    # Save best model
+                    if accelerator.is_main_process:
+                        accelerator.save_model(model, "./results/best_model")
+                else:
+                    patience_counter += 1
+                    if patience_counter >= patience:
+                        print(f"Early stopping triggered after {step} steps")
+                        break
+                        
                 accelerator.save_state(f"./results/checkpoint_step_{step}")
                 if accelerator.is_main_process:
                     accelerator.save_model(model, f"./results/checkpoint_step_{step}")
@@ -233,8 +269,11 @@ def train_reward_model(hparams: dict):
 if __name__ == "__main__":
     hparams = {
         "model": "Qwen/Qwen2.5-7B",
+        "seed": 6408,
         "num_epochs": 4,
         "batch_size": 2,
+        "num_warmup_steps": 100,
+        "num_training_steps": 1000,
         "gradient_accumulation_steps": 4,
         "learning_rate": 3e-6,
         "adam_beta1": 0.9,
