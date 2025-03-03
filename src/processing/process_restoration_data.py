@@ -3,14 +3,6 @@ import argparse
 import json
 import random
 
-def format_convo(convo: list[dict]) -> str:
-    formatted = ""
-    for msg in convo:
-        role = msg["role"].title()
-        content = msg["content"]
-        formatted += f"{role}: {content}\n\n"
-    return formatted
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="Input JSONL file")
@@ -37,11 +29,11 @@ if __name__ == "__main__":
             score = args.score
             
             if random.random() < 0.5:  # avoid bias
-                dataset["sample_a"].append(format_convo(original))
-                dataset["sample_b"].append(format_convo(restoration))
+                dataset["sample_a"].append(original)
+                dataset["sample_b"].append(restoration)
             else:
-                dataset["sample_a"].append(format_convo(restoration))
-                dataset["sample_b"].append(format_convo(original))
+                dataset["sample_a"].append(restoration)
+                dataset["sample_b"].append(original)
             dataset["score"].append(score)
     
     df = pd.DataFrame(dataset)

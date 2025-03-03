@@ -151,7 +151,7 @@ def train_reward_model(hparams: dict):
         }
 
     dataset = (
-        load_dataset("parquet", data_files="data/dclm_slop_results.parquet")["train"]
+        load_dataset("parquet", data_files="data/dataset.parquet")["train"]
         .shuffle(seed=42)
         .map(tokenize_function, batched=True)
     )
