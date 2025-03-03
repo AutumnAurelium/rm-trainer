@@ -32,7 +32,7 @@ if __name__ == "__main__":
         context = json.loads(row["context"])
         response_a = json.loads(row["response_a"])
         response_b = json.loads(row["response_b"])
-        score = row["score"]
+        score = (row["score"] - 1.0) / 6.0
         
         if random.random() < 0.5: # avoid bias
             dataset["sample_a"].append(format_convo(context + [response_b]))

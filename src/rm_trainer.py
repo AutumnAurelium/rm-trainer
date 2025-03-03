@@ -63,7 +63,7 @@ def calculate_loss(model, batch, return_metrics=False):
     rewards_a = outputs_a[:, 0]
     rewards_b = outputs_b[:, 0]
 
-    targets = (batch["score"] - 1.0) / 6.0
+    targets = batch["score"]
 
     # this is equivalent to bradley-terry probability
     probs = torch.sigmoid(rewards_a - rewards_b)
@@ -209,6 +209,7 @@ def train_reward_model(hparams: dict):
     num_training_steps = num_epochs * len(train_dataloader)
     progress_bar = tqdm(range(num_training_steps))
 
+    # validation loss stuff
     best_val_loss = float('inf')
     patience = hparams.get("patience", 3)
     patience_counter = 0
@@ -239,6 +240,7 @@ def train_reward_model(hparams: dict):
 
             progress_bar.update(1)
 
+            # validation stuff
             if step % hparams["validation_interval"] == 0 and step > 0:
                 # Eval on validation set and save checkpoint
                 val_loss = eval_validation(model, val_dataloader)
@@ -263,9 +265,7 @@ def train_reward_model(hparams: dict):
     # Model is finished, evaluate on validation set and save.
     if accelerator.is_main_process:
         eval_validation(model, val_dataloader)
-
         accelerator.save_model(model, "./results/final")
-
 
 if __name__ == "__main__":
     hparams = {

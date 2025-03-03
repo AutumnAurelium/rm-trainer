@@ -60,6 +60,9 @@ def split_sample(tokenizer: AutoTokenizer, sample: str, max_tokens: int, split_o
     
     return [s.strip() for s in final_splits if s.strip()]
 
+def conv_likert(likert: int) -> float:
+    return (likert - 1.0) / 6.0
+
 async def process_data(
     sample_a: str,
     sample_b: str,
@@ -84,13 +87,13 @@ async def process_data(
             yield {
                 "sample_a": prompt.format(sample_b_url, b_chunk),
                 "sample_b": prompt.format(sample_a_url, a_chunk),
-                "score": 7 - score
+                "score": conv_likert(7 - score)
             }
         else: # prefers sample_a
             yield {
                 "sample_a": prompt.format(sample_a_url, a_chunk),
                 "sample_b": prompt.format(sample_b_url, b_chunk),
-                "score": score
+                "score": conv_likert(score)
             }
 
 async def process_data_annotator(line: str, tokenizer: AutoTokenizer, max_tokens: int):
