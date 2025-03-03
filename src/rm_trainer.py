@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import bitsandbytes as bnb
-from torch.optim.lr_scheduler import get_scheduler
+from transformers import get_scheduler
 import wandb
 import pandas as pd
 import os
