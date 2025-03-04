@@ -101,13 +101,14 @@ def eval_validation(model, val_dataloader, do_log=False):
 
         # Average metrics over all batches
         metric_df = pd.DataFrame(val_metrics)
-        wandb.log({"val/" + k: v.mean() for k, v in metric_df.items()})
+        if do_log:
+            wandb.log({"val/" + k: v.mean() for k, v in metric_df.items()})
 
-        print("Validation loss:", metric_df["loss"].mean())
+            print("Validation loss:", metric_df["loss"].mean())
 
-        # Log raw metrics, too - for fun!
-        # If wandb gets mad at me I can just remove this.
-        wandb.log({"full_validation_results": wandb.Table(dataframe=metric_df)})
+            # Log raw metrics, too - for fun!
+            # If wandb gets mad at me I can just remove this.
+            wandb.log({"full_validation_results": wandb.Table(dataframe=metric_df)})
     model.train()
     
     return metric_df["loss"].mean()
