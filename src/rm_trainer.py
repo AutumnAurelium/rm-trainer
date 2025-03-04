@@ -83,7 +83,7 @@ def calculate_loss(model, batch, return_metrics=False):
         return batch_loss
 
 
-def eval_validation(model, val_dataloader):
+def eval_validation(model, val_dataloader, do_log=False):
     """Evaluate the model on the validation set and log it to wandb.
 
     Args:
@@ -243,7 +243,7 @@ def train_reward_model(hparams: dict):
             # validation stuff
             if step % hparams["validation_interval"] == 0 and step > 0:
                 # Eval on validation set and save checkpoint
-                val_loss = eval_validation(model, val_dataloader)
+                val_loss = eval_validation(model, val_dataloader, do_log=accelerator.is_main_process)
                 
                 # Early stopping
                 if val_loss < best_val_loss:
